@@ -14,9 +14,9 @@ Trace changes through the smallest relevant path:
 
 - Idle detection: `manifest.json` -> `timeoutModal.js` ->
   `inactivityplugin.css`.
-- Session reset: `timeoutModal.js` -> runtime `reset-session` message ->
-  `background.js` -> `reset.html` -> `browsingData.remove()` -> configured
-  `redirectUrl`.
+- Session reset: Dynamics `data-logout-url` detection in `timeoutModal.js` ->
+  runtime `reset-session` message -> remote logout in `background.js` ->
+  `reset.html` -> `browsingData.remove()` -> configured `redirectUrl`.
 - Settings or defaults: `popup/options.html` -> `popup/options.js` ->
   `browser.storage.local` reads in `timeoutModal.js`.
 - Language: the page's `iclangplug` query parameter -> stored `epnLang` ->
@@ -53,15 +53,18 @@ with small durations so a duplicate timer, modal, or reset is observable.
 Keep the reset sequence ordered and fail closed:
 
 1. Resolve and validate `redirectUrl`, falling back to `about:blank`.
-2. Move the requesting tab to `reset.html` and wait for the previous site to
+2. If the page supplies a same-origin HTTP(S) Dynamics logout URL, navigate to
+   it and wait for its redirect chain to finish while cookies still exist.
+3. Move the requesting tab to `reset.html` and wait for the previous site to
    unload.
-3. Clear normal web data without clearing extension storage.
-4. Navigate to the configured URL only after cleanup succeeds.
+4. Clear normal web data without clearing extension storage.
+5. Navigate to the configured URL only after cleanup succeeds.
 
 Do not navigate to the portal after a cleanup error; doing so can expose the
 next kiosk user to stale authentication state. Keep cleanup deduplicated per
-tab. Changes to the global cleanup scope require explicit review because they
-affect every normal website in the Firefox profile.
+tab. Treat remote logout as best-effort so an unavailable endpoint cannot skip
+local cleanup. Changes to the global cleanup scope require explicit review
+because they affect every normal website in the Firefox profile.
 
 ## Preserve compatibility and page safety
 
@@ -69,6 +72,9 @@ affect every normal website in the Firefox profile.
 - Keep existing storage keys compatible unless the task includes migration.
 - Accept only absolute HTTP(S) redirect URLs or `about:blank`; never permit
   `javascript:`, `data:`, or arbitrary local-file redirects.
+- Accept a DOM-provided logout URL only when it resolves to HTTP(S) on the
+  current page's origin. Revalidate it in `background.js`; never trust a URL
+  supplied by a content script based solely on its DOM checks.
 - Insert configurable title and message values with `textContent`, never
   `innerHTML`; legacy stored strings may contain HTML entities and can be
   decoded before safe insertion.

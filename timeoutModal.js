@@ -179,7 +179,10 @@ function requestSessionReset() {
     sessionResetRequested = true;
     clearInterval(timer);
 
-    browser.runtime.sendMessage({ type: "reset-session" }).then((response) => {
+    browser.runtime.sendMessage({
+        type: "reset-session",
+        logoutUrl: getPortalLogoutUrl()
+    }).then((response) => {
         if (!response?.ok) {
             sessionResetRequested = false;
             onError(response?.error ?? "Session reset failed.");
@@ -188,6 +191,31 @@ function requestSessionReset() {
         sessionResetRequested = false;
         onError(error);
     });
+}
+
+function getPortalLogoutUrl() {
+    const logoutButton = document.querySelector(
+        "#header-sign-out[data-logout-url]"
+    );
+
+    if (!logoutButton) {
+        return null;
+    }
+
+    try {
+        const logoutUrl = new URL(logoutButton.dataset.logoutUrl, window.location.href);
+
+        if (
+            (logoutUrl.protocol === "http:" || logoutUrl.protocol === "https:") &&
+            logoutUrl.origin === window.location.origin
+        ) {
+            return logoutUrl.href;
+        }
+    } catch (error) {
+        onError(error);
+    }
+
+    return null;
 }
 
 

@@ -43,9 +43,13 @@ There is no automated test suite or generated output in the repository.
   absolute HTTP(S) URL.
 - Choosing **Exit**, allowing the grace period to expire, or reaching an exact
   FAS `itsme/refused` URL sends a `reset-session` message to `background.js`.
-- The reset order is significant: load `reset.html`, wait for it to complete,
-  clear normal website data, then navigate to `redirectUrl`. Do not redirect to
-  the portal before cleanup finishes.
+- When the current page contains `#header-sign-out[data-logout-url]`, resolve
+  the value against the page URL and send it with the reset request. Both the
+  content script and background script must restrict it to same-origin HTTP(S).
+- The reset order is significant: request the Dynamics logout with existing
+  cookies, load `reset.html`, clear normal website data, then navigate to
+  `redirectUrl`. Do not clear cookies before the remote logout request and do
+  not redirect to the portal before cleanup finishes.
 - Cleanup intentionally preserves the extension's `browser.storage.local`
   values and does not remove saved passwords or downloaded files.
 - The `iclangplug` URL parameter is stored as `epnLang`. Values containing `fr`,
@@ -71,6 +75,8 @@ There is no automated test suite or generated output in the repository.
   remaining active. Check cleanup paths when changing timers or event handling.
 - Keep one reset operation per tab. A cleanup failure must leave the tab on the
   neutral reset page instead of loading the portal with stale session data.
+- Failure of the remote logout navigation is best-effort and must not prevent
+  local cleanup. Failure of local cleanup remains fail-closed.
 - `browsingData.remove()` currently clears normal web cookies, cache, local and
   session storage, IndexedDB, service workers, history, form data, and download
   history across the Firefox profile. Treat changes to that scope as
@@ -108,8 +114,9 @@ For behavior changes, load `manifest.json` as a temporary add-on from
 1. Activity postpones the modal.
 2. Inactivity shows exactly one modal.
 3. **Continue** removes it and starts a fresh idle period.
-4. **Exit** and grace-period expiry show `reset.html`, clear the session, and
-   reach the configured URL.
+4. On a Dynamics page containing the sign-out button, **Exit** and grace-period
+   expiry visit its logout URL before showing `reset.html`, clearing the
+   session, and reaching the configured URL.
 5. Cookies, local/session storage, IndexedDB, and service worker state from a
    test site are absent after reset.
 6. The extension settings survive cleanup and reopening the toolbar popup.
@@ -117,6 +124,6 @@ For behavior changes, load `manifest.json` as a temporary add-on from
    safely redirects to `about:blank`.
 8. Any affected itsme/FAS exception still follows its documented branch.
 
-Report manual checks that could not be performed. Also report whether the
-portal's server-side login survives cleanup, since that requires its own logout
-or revocation mechanism.
+Report manual checks that could not be performed. Also report whether Dynamics
+Power Pages signs out only its local session or the external identity provider;
+the latter depends on the portal's External logout configuration.

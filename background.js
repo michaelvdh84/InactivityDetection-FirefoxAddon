@@ -28,10 +28,10 @@ browser.runtime.onMessage.addListener((message, sender) => {
         });
     }
 
-    return resetSession(tabId);
+    return resetSession(tabId, message.logoutUrl, sender.url);
 });
 
-async function resetSession(tabId) {
+async function resetSession(tabId, requestedLogoutUrl, sourceUrl) {
     if (resetsInProgress.has(tabId)) {
         return { ok: true, alreadyInProgress: true };
     }
@@ -41,12 +41,24 @@ async function resetSession(tabId) {
     try {
         const { redirectUrl } = await browser.storage.local.get("redirectUrl");
         const targetUrl = normalizeRedirectUrl(redirectUrl);
+        const logoutUrl = normalizeLogoutUrl(requestedLogoutUrl, sourceUrl);
+
+        if (logoutUrl) {
+            try {
+                // Dynamics Power Pages must receive its logout request while
+                // authentication cookies are still available so it can
+                // invalidate the server-side session.
+                await navigateAndWait(tabId, logoutUrl);
+            } catch (error) {
+                // Continue with local cleanup even if the remote logout page is
+                // unavailable. The final redirect remains guarded by cleanup.
+                console.warn("Portal logout request failed:", error);
+            }
+        }
 
         // Leave the current site before clearing its data so it cannot recreate
         // cookies or storage while cleanup is running.
-        const resetPageLoaded = waitForTabToLoad(tabId, RESET_PAGE_URL);
-        await browser.tabs.update(tabId, { url: RESET_PAGE_URL });
-        await resetPageLoaded;
+        await navigateAndWait(tabId, RESET_PAGE_URL, RESET_PAGE_URL);
 
         // originTypes is intentionally omitted: Firefox then removes normal web
         // data without deleting this extension's own stored configuration.
@@ -82,11 +94,34 @@ function normalizeRedirectUrl(value) {
     return DEFAULT_REDIRECT_URL;
 }
 
-function waitForTabToLoad(tabId, expectedUrl) {
+function normalizeLogoutUrl(value, sourceUrl) {
+    if (!value || !sourceUrl) {
+        return null;
+    }
+
+    try {
+        const logoutUrl = new URL(String(value));
+        const source = new URL(String(sourceUrl));
+
+        if (
+            (logoutUrl.protocol === "http:" || logoutUrl.protocol === "https:") &&
+            logoutUrl.origin === source.origin
+        ) {
+            return logoutUrl.href;
+        }
+    } catch (error) {
+        console.error("Invalid portal logout URL:", error);
+    }
+
+    console.warn("Ignoring a logout URL that is invalid or not same-origin.");
+    return null;
+}
+
+function navigateAndWait(tabId, url, expectedUrl = null) {
     return new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
             cleanup();
-            reject(new Error("Timed out while loading the reset page."));
+            reject(new Error(`Timed out while loading ${url}.`));
         }, 10000);
 
         function cleanup() {
@@ -99,7 +134,7 @@ function waitForTabToLoad(tabId, expectedUrl) {
             if (
                 updatedTabId === tabId &&
                 changeInfo.status === "complete" &&
-                tab.url === expectedUrl
+                (!expectedUrl || tab.url === expectedUrl)
             ) {
                 cleanup();
                 resolve();
@@ -115,5 +150,10 @@ function waitForTabToLoad(tabId, expectedUrl) {
 
         browser.tabs.onUpdated.addListener(onUpdated);
         browser.tabs.onRemoved.addListener(onRemoved);
+
+        browser.tabs.update(tabId, { url }).catch((error) => {
+            cleanup();
+            reject(error);
+        });
     });
 }

@@ -36,11 +36,23 @@ The redirect URL must use `http://` or `https://`; `about:blank` is also accepte
 
 The reset is triggered by the **Exit** button, expiry of the modal's grace period, or the existing FAS `itsme/refused` exception.
 
+On Microsoft Dynamics Power Pages, the content script looks for
+`#header-sign-out[data-logout-url]`. When found, it resolves the relative logout
+path against the current portal origin and sends it to the background script.
+Only a same-origin HTTP(S) logout URL is accepted.
+
 The extension performs the following sequence:
 
-1. Navigate the active tab to the packaged `reset.html` page so the previous website can no longer recreate session data.
-2. Clear normal website data through Firefox's `browsingData` API.
-3. Navigate the same tab to the configured redirect URL.
+1. Navigate to the Dynamics `data-logout-url` while authentication cookies are
+   still present, allowing the portal to invalidate its server-side session.
+2. Navigate the active tab to the packaged `reset.html` page so the previous
+   website can no longer recreate session data.
+3. Clear normal website data through Firefox's `browsingData` API.
+4. Navigate the same tab to the configured redirect URL.
+
+If no compatible logout button exists, or if its URL is rejected, the reset
+continues with local cleanup. If the remote logout request fails to load, the
+failure is logged and local cleanup still runs.
 
 The reset clears:
 
@@ -57,7 +69,11 @@ Downloaded files and saved passwords are not deleted. The extension's own `brows
 
 The cleanup is browser-wide for normal web content in the current Firefox profile. For kiosk use, dedicate the profile to the portal and avoid unrelated browsing in that profile.
 
-Clearing client-side data does not revoke a server-side SSO or OAuth session. If the portal exposes a logout or token-revocation endpoint, invoke it before cleanup when a server-side logout is required.
+Clearing client-side data alone does not revoke a server-side SSO or OAuth
+session. The Dynamics logout step addresses the portal session. Depending on
+the configured identity provider, Power Pages may also need its **External
+logout** setting enabled to sign out from Microsoft Entra or another external
+identity provider.
 
 ## Permissions
 
@@ -74,6 +90,8 @@ Clearing client-side data does not revoke a server-side SSO or OAuth session. If
   - Added a configurable session redirect URL.
   - Replaced automatic window closing with browser-data cleanup and redirection.
   - Added an extension background script and an intermediate reset page.
+  - Added automatic Dynamics Power Pages logout through the header's
+    `data-logout-url` before local cleanup.
 - **02-05-2025**:
   - Refactored promises for better readability.
   - Added default values for `showModal`, `popupLife`, `title`, and `message`.
