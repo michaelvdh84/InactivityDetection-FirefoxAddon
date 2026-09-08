@@ -1,4 +1,5 @@
 let timer, currSeconds = 0;
+let sessionResetRequested = false;
 let url, timeout;
 
 //This is the GET value passed by the EPNLauncher to define the language
@@ -128,10 +129,10 @@ if (currentUrl.includes(urlContains)) {
 else if ((currentUrl == "https://idp.iamfas.int.belgium.be/fasui/itsme/refused") || (currentUrl == "https://idp.iamfas.belgium.be/fasui/itsme/refused")) {
     //This condition is to fix the second itsme bug
     //There is already a JS timer when you validate you phone number on itsme and it causes a conflict
-    //The bug is bypassed by waiting the end of the itsme timer and close the browser if the URL correspond to xxxxxx/fasui/itsme/refused
+    //The bug is bypassed by resetting the session if the URL corresponds to xxxxxx/fasui/itsme/refused
 
-    console.log("itsme refused, close window !");
-    window.top.close();
+    console.log("itsme refused, reset session !");
+    requestSessionReset();
 }
 else {
     resetTimer();
@@ -168,6 +169,25 @@ function logItem () {
 
 function onError(error) {
     console.log(error);
+}
+
+function requestSessionReset() {
+    if (sessionResetRequested) {
+        return;
+    }
+
+    sessionResetRequested = true;
+    clearInterval(timer);
+
+    browser.runtime.sendMessage({ type: "reset-session" }).then((response) => {
+        if (!response?.ok) {
+            sessionResetRequested = false;
+            onError(response?.error ?? "Session reset failed.");
+        }
+    }, (error) => {
+        sessionResetRequested = false;
+        onError(error);
+    });
 }
 
 
@@ -223,7 +243,7 @@ function htmlModal(txt, title, language, graceIdleTime) {
     // Grace period timer
     const graceCounter = setTimeout(() => {
         console.log("Grace period expired");
-        window.top.close();
+        requestSessionReset();
     }, graceIdleTime);
 
     if (language == "fr") {
@@ -272,7 +292,7 @@ function htmlModal(txt, title, language, graceIdleTime) {
     const closeButton = document.createElement("button");
     closeButton.className = "buttonTimeOut";
     closeButton.textContent = exitButton;
-    closeButton.onclick = () => window.top.close();
+    closeButton.onclick = requestSessionReset;
 
     // Assembler les éléments
     buttonContainer.appendChild(continueButton);

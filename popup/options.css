@@ -17,6 +17,14 @@
     width: 40%;
 }
 
+.options-time .options-redirect label {
+    width: 25%;
+}
+
+.options-time .options-redirect input {
+    width: 70%;
+}
+
 .options-text label {
     display: inline-block;
     width: 40%;

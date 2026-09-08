@@ -2,13 +2,16 @@
 
 ## Description
 
-The EPN Inactivity Detection extension monitors user activity on the browser and displays a popup after a specified period of inactivity. If the user does not respond within the popup's lifetime, the browser will automatically close.
+The EPN Inactivity Detection extension monitors activity in Firefox and displays a confirmation modal after a configured period of inactivity. If the user does not respond before the modal expires, the extension clears browsing-session data and redirects the tab to a configured URL.
 
 ### Key Features:
 - Set the inactivity period after which the popup is displayed.
-- Define the popup's lifetime before the browser closes.
+- Define the popup's lifetime before the session is reset.
+- Redirect to a configurable URL after each reset.
+- Clear cookies, cache, site storage, browsing history, form data, and download history without closing Firefox.
 - Multilingual support for popup messages (French, Dutch, English).
 - Customizable popup messages and titles for each language.
+- Firefox Manifest V3 extension.
 
 ## Installation
 
@@ -22,18 +25,55 @@ The EPN Inactivity Detection extension monitors user activity on the browser and
 1. Open the extension's options page by clicking on the extension icon in the toolbar.
 2. Configure the following settings:
    - **Inactivity Period**: Time (in seconds) before the popup is displayed.
-   - **Popup Lifetime**: Time (in seconds) before the browser closes if no action is taken.
+   - **Popup Lifetime**: Time (in seconds) before the session is reset if no action is taken.
+   - **Redirect URL**: Absolute HTTP(S) URL loaded after cleanup. The default is `about:blank`.
    - **Popup Messages**: Customize the title and message for each supported language (FR, NL, EN).
 3. Save your settings by clicking the **Validate** button.
-4. Ensure the Firefox parameter `dom.allow_scripts_to_close_windows` is set to `true` for the browser to close automatically.  
-   - To enable this parameter:
-     1. Open a new tab and navigate to `about:config`.
-     2. Search for `dom.allow_scripts_to_close_windows`.
-     3. Set its value to `true`.
+
+The redirect URL must use `http://` or `https://`; `about:blank` is also accepted as a safe fallback.
+
+## Session reset
+
+The reset is triggered by the **Exit** button, expiry of the modal's grace period, or the existing FAS `itsme/refused` exception.
+
+The extension performs the following sequence:
+
+1. Navigate the active tab to the packaged `reset.html` page so the previous website can no longer recreate session data.
+2. Clear normal website data through Firefox's `browsingData` API.
+3. Navigate the same tab to the configured redirect URL.
+
+The reset clears:
+
+- cookies;
+- browser cache;
+- `localStorage` and `sessionStorage`;
+- IndexedDB;
+- service worker registrations and cached data;
+- browsing history;
+- saved form data;
+- download history.
+
+Downloaded files and saved passwords are not deleted. The extension's own `browser.storage.local` data is preserved, including timeouts, translations, language, and redirect URL.
+
+The cleanup is browser-wide for normal web content in the current Firefox profile. For kiosk use, dedicate the profile to the portal and avoid unrelated browsing in that profile.
+
+Clearing client-side data does not revoke a server-side SSO or OAuth session. If the portal exposes a logout or token-revocation endpoint, invoke it before cleanup when a server-side logout is required.
+
+## Permissions
+
+- `storage`: saves the extension configuration.
+- `tabs`: moves the tab to the reset page and then to the configured destination.
+- `browsingData`: removes normal website session and browsing data.
+- `activeTab`: retained for compatibility with the existing toolbar workflow.
 
 ## Improvements
 
 ### Recent Updates:
+- **08-09-2026**:
+  - Migrated the extension to Firefox Manifest V3.
+  - Added a configurable session redirect URL.
+  - Replaced automatic window closing with browser-data cleanup and redirection.
+  - Added an extension background script and an intermediate reset page.
 - **02-05-2025**:
   - Refactored promises for better readability.
   - Added default values for `showModal`, `popupLife`, `title`, and `message`.

@@ -1,8 +1,8 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 3,
     "name": "Inactivity Detection",
     "version": "2.0.5",
-    "description": "Check inactivity and close windows after a certain time.",
+    "description": "Check inactivity, clear browsing data, and redirect after a certain time.",
     "icons": {
       "48": "icons/hibernation-48.png",
       "96": "icons/hibernation-96.png"
@@ -10,16 +10,24 @@
     },
     "browser_specific_settings": {
       "gecko": {
-        "id": "michael.vanderhoudelinghen@i-city.brucity.be"
+        "id": "michael.vanderhoudelinghen@i-city.brucity.be",
+        "data_collection_permissions": {
+          "required": ["none"]
+        }
       }
     },
     "permissions": [
       "activeTab",
+      "browsingData",
       "tabs",
       "storage"
     ],
 
-    "browser_action": {
+    "background": {
+      "scripts": ["background.js"]
+    },
+
+    "action": {
       "default_icon":"icons/hibernation-48.png",
       "default_title":"Inactivity Options",
       "default_popup":"popup/options.html"
@@ -33,4 +41,3 @@
       }
     ]
   }
-  

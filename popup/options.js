@@ -3,6 +3,7 @@ console.log("Load options.js script");
 const defaultParameters = {
     modalAfter: 60, // Temps avant d'afficher le modal (en secondes)
     popupLife: 30,  // Durée de vie du popup (en secondes)
+    redirectUrl: 'about:blank',
     titleFR: 'Inactivit&eacute; d&eacute;tect&eacute;e !',
     txtFR: 'Voulez-vous maintenir la session ouverte?',
     titleNL: 'Inactiviteit gedetecteerd !',
@@ -12,21 +13,27 @@ const defaultParameters = {
 };
 
 // Initialiser les paramètres par défaut si non définis
-function initializeDefaultParameters() {
-    browser.storage.local.get(null).then((results) => {
-        let keys = Object.keys(results);
+async function initializeDefaultParameters() {
+    try {
+        const results = await browser.storage.local.get(null);
+        const missingParameters = {};
 
         // Vérifier si chaque clé par défaut existe, sinon l'ajouter
-        for (let key in defaultParameters) {
-            if (!keys.includes(key)) {
-                let paramToStore = {};
-                paramToStore[key] = defaultParameters[key];
-                browser.storage.local.set(paramToStore);
+        for (const [key, value] of Object.entries(defaultParameters)) {
+            if (!(key in results)) {
+                missingParameters[key] = value;
             }
         }
+
+        if (Object.keys(missingParameters).length > 0) {
+            await browser.storage.local.set(missingParameters);
+        }
+
         // Get existing stored values and fill in the popup form
         getSavedParameters();
-    }, onError);
+    } catch (error) {
+        onError(error);
+    }
 }
 
 // Charger les paramètres existants et remplir le formulaire
@@ -69,6 +76,8 @@ btnTimeoutModifier.addEventListener("click", function () {
 
     const modalAfter = document.getElementById("modalAfter").value;
     const popupLife = document.getElementById("popupLife").value;
+    const redirectUrlInput = document.getElementById("redirectUrl");
+    const redirectUrl = normalizeRedirectUrl(redirectUrlInput.value);
     const titleFR = document.getElementById("titleFR").value;
     const titleNL = document.getElementById("titleNL").value;
     const titleEN = document.getElementById("titleEN").value;
@@ -76,9 +85,28 @@ btnTimeoutModifier.addEventListener("click", function () {
     const txtNL = document.getElementById("txtNL").value;
     const txtEN = document.getElementById("txtEN").value;
 
+    if (!redirectUrl) {
+        alert("Redirect URL must be an absolute HTTP(S) URL or about:blank.");
+        redirectUrlInput.focus();
+        return;
+    }
+
+    const modalAfterSeconds = Number(modalAfter);
+    const popupLifeSeconds = Number(popupLife);
+    if (
+        !Number.isFinite(modalAfterSeconds) ||
+        !Number.isFinite(popupLifeSeconds) ||
+        modalAfterSeconds <= 0 ||
+        popupLifeSeconds <= 0
+    ) {
+        alert("Timeout values must be greater than zero.");
+        return;
+    }
+
     let paramToStore = {
-        modalAfter: modalAfter,
-        popupLife: popupLife,
+        modalAfter: modalAfterSeconds,
+        popupLife: popupLifeSeconds,
+        redirectUrl: redirectUrl,
         titleFR: titleFR,
         titleNL: titleNL,
         titleEN: titleEN,
@@ -107,6 +135,25 @@ function decodeHTML(str) {
     const textarea = document.createElement("textarea");
     textarea.innerHTML = str;
     return textarea.value;
+}
+
+function normalizeRedirectUrl(value) {
+    const candidate = value.trim();
+
+    if (candidate === "about:blank") {
+        return candidate;
+    }
+
+    try {
+        const parsedUrl = new URL(candidate);
+        if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
+            return parsedUrl.href;
+        }
+    } catch (error) {
+        console.log(error);
+    }
+
+    return null;
 }
 
 // Initialiser les paramètres par défaut au chargement

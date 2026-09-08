@@ -1,5 +1,7 @@
-<html>
+<!doctype html>
+<html lang="en">
 <head>
+    <meta charset="utf-8">
     <link rel="stylesheet" href="options.css">
 </head>
 <body>
@@ -7,11 +9,15 @@
     <div class="options-time">
         <div class="options-field">
             <label>Show popup after :</label>
-            <input type="number" access="false" id="modalAfter"> seconds
+            <input type="number" access="false" id="modalAfter" min="1"> seconds
         </div>
         <div class="options-field">
             <label>Popup life:&nbsp;</label>
-            <input type="number" id="popupLife"> seconds
+            <input type="number" id="popupLife" min="1"> seconds
+        </div>
+        <div class="options-field options-redirect">
+            <label for="redirectUrl">Redirect URL:</label>
+            <input type="url" id="redirectUrl" placeholder="https://portal.example.com/">
         </div>
     </div>
     <hr/>
@@ -50,10 +56,11 @@
             </table>
         </div>
     </div>
-    </br>
+    <br>
     <div>
         <button type="button" access="false" id="extTimeoutOptionbtn">Validate</button>
     </div>
 </div>
 <script src="options.js"></script>
 </body>
+</html>
