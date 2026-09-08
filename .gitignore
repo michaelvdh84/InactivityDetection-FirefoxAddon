@@ -1,3 +1,4 @@
 bin/*
 *.oldversion.js
 *.oldversion.*
+native-host/config.json

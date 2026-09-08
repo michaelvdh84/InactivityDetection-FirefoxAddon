@@ -1,0 +1,9 @@
+{
+  "name": "be.brucity.inactivity_detection",
+  "description": "Configuration host for the Inactivity Detection Firefox extension",
+  "path": "C:\\Program Files\\Brucity\\InactivityDetectionHost\\host.cmd",
+  "type": "stdio",
+  "allowed_extensions": [
+    "michael.vanderhoudelinghen@i-city.brucity.be"
+  ]
+}

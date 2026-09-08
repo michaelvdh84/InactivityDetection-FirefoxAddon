@@ -1,6 +1,19 @@
 const RESET_SESSION_MESSAGE = "reset-session";
+const REFRESH_NATIVE_CONFIG_MESSAGE = "refresh-native-config";
+const NATIVE_HOST_NAME = "be.brucity.inactivity_detection";
 const DEFAULT_REDIRECT_URL = "about:blank";
 const RESET_PAGE_URL = browser.runtime.getURL("reset.html");
+
+const NATIVE_TEXT_LIMITS = {
+    titleFR: 500,
+    txtFR: 2000,
+    titleNL: 500,
+    txtNL: 2000,
+    titleEN: 500,
+    txtEN: 2000,
+    hostname: 255,
+    ip: 255
+};
 
 const WEB_DATA_TO_REMOVE = {
     cache: true,
@@ -16,6 +29,10 @@ const WEB_DATA_TO_REMOVE = {
 const resetsInProgress = new Set();
 
 browser.runtime.onMessage.addListener((message, sender) => {
+    if (message?.type === REFRESH_NATIVE_CONFIG_MESSAGE) {
+        return importNativeConfiguration();
+    }
+
     if (message?.type !== RESET_SESSION_MESSAGE) {
         return undefined;
     }
@@ -30,6 +47,89 @@ browser.runtime.onMessage.addListener((message, sender) => {
 
     return resetSession(tabId, message.logoutUrl, sender.url);
 });
+
+browser.runtime.onInstalled.addListener(() => {
+    importNativeConfiguration().catch(logNativeImportError);
+});
+
+browser.runtime.onStartup.addListener(() => {
+    importNativeConfiguration().catch(logNativeImportError);
+});
+
+async function importNativeConfiguration() {
+    try {
+        const response = await browser.runtime.sendNativeMessage(
+            NATIVE_HOST_NAME,
+            { type: "get-config" }
+        );
+
+        if (!response || response.ok !== true || !isPlainObject(response.config)) {
+            throw new Error(response?.error || "The native host returned an invalid response.");
+        }
+
+        const config = validateNativeConfiguration(response.config);
+        const importedAt = new Date().toISOString();
+        await browser.storage.local.set({
+            ...config,
+            nativeConfigImportedAt: importedAt
+        });
+
+        return {
+            ok: true,
+            hostname: config.hostname,
+            ip: config.ip,
+            importedAt
+        };
+    } catch (error) {
+        logNativeImportError(error);
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+}
+
+function validateNativeConfiguration(source) {
+    const config = {
+        modalAfter: requirePositiveNumber(source.modalAfter, "modalAfter"),
+        popupLife: requirePositiveNumber(source.popupLife, "popupLife"),
+        redirectUrl: requireRedirectUrl(source.redirectUrl)
+    };
+
+    for (const [key, maxLength] of Object.entries(NATIVE_TEXT_LIMITS)) {
+        config[key] = requireString(source[key], key, maxLength);
+    }
+
+    return config;
+}
+
+function requirePositiveNumber(value, key) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number <= 0) {
+        throw new Error(`Native configuration key "${key}" must be a positive number.`);
+    }
+    return number;
+}
+
+function requireRedirectUrl(value) {
+    const normalized = normalizeRedirectUrl(value);
+    if (normalized === DEFAULT_REDIRECT_URL && String(value ?? "").trim() !== DEFAULT_REDIRECT_URL) {
+        throw new Error('Native configuration key "redirectUrl" must be about:blank or an absolute HTTP(S) URL.');
+    }
+    return normalized;
+}
+
+function requireString(value, key, maxLength) {
+    if (typeof value !== "string" || value.length > maxLength) {
+        throw new Error(`Native configuration key "${key}" must be a string of at most ${maxLength} characters.`);
+    }
+    return value;
+}
+
+function isPlainObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function logNativeImportError(error) {
+    console.warn(`Native configuration import failed (${NATIVE_HOST_NAME}):`, error);
+}
 
 async function resetSession(tabId, requestedLogoutUrl, sourceUrl) {
     if (resetsInProgress.has(tabId)) {

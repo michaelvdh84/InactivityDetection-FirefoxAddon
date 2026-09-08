@@ -11,6 +11,8 @@ The EPN Inactivity Detection extension monitors activity in Firefox and displays
 - Clear cookies, cache, site storage, browsing history, form data, and download history without closing Firefox.
 - Multilingual support for popup messages (French, Dutch, English).
 - Customizable popup messages and titles for each language.
+- Import all settings from a Windows Native Messaging host and expose the
+  kiosk hostname and IPv4 address.
 - Firefox Manifest V3 extension.
 
 ## Installation
@@ -29,6 +31,11 @@ The EPN Inactivity Detection extension monitors activity in Firefox and displays
    - **Redirect URL**: Absolute HTTP(S) URL loaded after cleanup. The default is `about:blank`.
    - **Popup Messages**: Customize the title and message for each supported language (FR, NL, EN).
 3. Save your settings by clicking the **Validate** button.
+
+For managed kiosks, the same values can come from the Native Messaging host's
+`config.json`. Click **Import config.json**, or let the extension import it
+automatically when Firefox starts. Installation and validation are documented
+in [nativemessaging.md](nativemessaging.md).
 
 The redirect URL must use `http://` or `https://`; `about:blank` is also accepted as a safe fallback.
 
@@ -74,7 +81,7 @@ The reset clears:
 - saved form data;
 - download history.
 
-Downloaded files and saved passwords are not deleted. The extension's own `browser.storage.local` data is preserved, including timeouts, translations, language, and redirect URL.
+Downloaded files and saved passwords are not deleted. The extension's own `browser.storage.local` data is preserved, including timeouts, translations, language, redirect URL, hostname, and IP metadata.
 
 The cleanup is browser-wide for normal web content in the current Firefox profile. For kiosk use, dedicate the profile to the portal and avoid unrelated browsing in that profile.
 
@@ -90,6 +97,8 @@ identity provider.
 - `tabs`: moves the tab to the reset page and then to the configured destination.
 - `browsingData`: removes normal website session and browsing data.
 - `activeTab`: retained for compatibility with the existing toolbar workflow.
+- `nativeMessaging`: imports the kiosk configuration from the registered local
+  Windows host.
 
 ## Improvements
 
@@ -102,6 +111,8 @@ identity provider.
   - Added automatic Dynamics Power Pages logout through the header's
     `data-logout-url` before local cleanup.
   - Disabled inactivity detection completely on the configured start page.
+  - Added configuration import through a Windows Native Messaging host,
+    including read-only hostname and IP metadata.
 - **02-05-2025**:
   - Refactored promises for better readability.
   - Added default values for `showModal`, `popupLife`, `title`, and `message`.

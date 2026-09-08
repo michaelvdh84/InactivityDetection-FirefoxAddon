@@ -1,6 +1,6 @@
 ---
 name: maintain-firefox-inactivity-extension
-description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension, including timers, session-data cleanup, redirects, multilingual options, storage keys, and itsme/FAS URL exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
+description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension and Windows Native Messaging host, including timers, session cleanup, redirects, managed JSON configuration, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
 ---
 
 # Maintain the Firefox inactivity extension
@@ -19,6 +19,9 @@ Trace changes through the smallest relevant path:
   `reset.html` -> `browsingData.remove()` -> configured `redirectUrl`.
 - Settings or defaults: `popup/options.html` -> `popup/options.js` ->
   `browser.storage.local` reads in `timeoutModal.js`.
+- Managed settings: `native-host/config.json` -> framed host response ->
+  `runtime.sendNativeMessage()` in `background.js` -> validated atomic write to
+  `browser.storage.local` -> popup and content-script consumers.
 - Language: the page's `iclangplug` query parameter -> stored `epnLang` ->
   `titleFR`/`txtFR`, `titleNL`/`txtNL`, or `titleEN`/`txtEN` -> modal text.
 - Site exception: evaluate the ordered itsme/FAS URL branches in
@@ -93,6 +96,23 @@ because they affect every normal website in the Firefox profile.
 - Keep privileged cleanup and tab navigation in `background.js`; content scripts
   should only send the reset request.
 
+## Preserve the Native Messaging contract
+
+- Keep the host name `be.brucity.inactivity_detection` aligned across
+  `background.js`, the example native manifest, the Windows registry guide, and
+  any deployment automation.
+- Keep the Gecko extension ID aligned with the native manifest's
+  `allowed_extensions` entry.
+- Import all editable popup keys as one validated unit. Do not partially apply
+  malformed configuration, copy unknown keys, or erase the last valid settings
+  when the host is unavailable.
+- Derive `hostname` and `ip` in the host and expose them as read-only metadata.
+- Keep native stdout exclusively for four-byte-length-prefixed UTF-8 JSON.
+  Validate host changes with `native-host/test-host.ps1`.
+- Keep machine-specific `native-host/config.json` untracked. Update
+  `nativemessaging.md` when host installation, registry, schema, or diagnostics
+  change.
+
 ## Handle site exceptions deliberately
 
 Before editing URL matching, verify all three existing behaviors:
@@ -109,7 +129,8 @@ do not broaden a close condition without an explicit requirement.
 ## Verify the result
 
 Always run JavaScript syntax checks, including `background.js`, and parse
-`manifest.json`. Use `web-ext lint`
+`manifest.json`. For native-host changes, parse both example JSON files, check
+PowerShell syntax, and run the protocol test. Use `web-ext lint`
 when it is already available. For logic changes, perform or clearly request the
 manual Firefox scenarios listed in `AGENTS.md`; report any scenario not run.
 

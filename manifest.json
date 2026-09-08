@@ -19,6 +19,7 @@
     "permissions": [
       "activeTab",
       "browsingData",
+      "nativeMessaging",
       "tabs",
       "storage"
     ],

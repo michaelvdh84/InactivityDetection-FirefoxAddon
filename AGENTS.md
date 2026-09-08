@@ -25,6 +25,10 @@ step unless the task explicitly requires one.
 - `popup/options.js`: default settings, form hydration, and persistence through
   `browser.storage.local`.
 - `popup/options.css`: configuration popup styles.
+- `native-host/`: Windows PowerShell host, protocol test, example configuration,
+  and example Firefox native-host manifest.
+- `nativemessaging.md`: Windows installation, registry, validation, and
+  troubleshooting guide for the native host.
 - `icons/`: packaged extension icons.
 - `README.md`: manual installation and user-facing behavior.
 
@@ -34,6 +38,14 @@ There is no automated test suite or generated output in the repository.
 
 - Stored durations are seconds. `timeoutModal.js` converts them to milliseconds
   for `setInterval` and `setTimeout`.
+- Native configuration uses host name `be.brucity.inactivity_detection`. It is
+  imported on extension installation, Firefox startup, or manual popup request.
+- Native imports must be atomic and allow-listed: validate every supported key
+  before writing any of them. A missing host or invalid response preserves the
+  last valid configuration.
+- `hostname` and `ip` come from the native host and are read-only in the popup.
+  `config.json` must contain every editable option but does not contain these
+  two host-derived values.
 - `modalAfter` defaults to 60 seconds and `popupLife` defaults to 30 seconds.
   Defaults also exist in `popup/options.js`; keep both locations consistent when
   changing them.
@@ -71,6 +83,12 @@ There is no automated test suite or generated output in the repository.
 ## Implementation guidance
 
 - Use plain JavaScript, DOM APIs, and Firefox's promise-based `browser.*` API.
+- Content scripts and the popup must request privileged Native Messaging work
+  through `background.js`; keep `runtime.sendNativeMessage()` in the background.
+- Never trust native-host JSON merely because it is local. Keep the explicit
+  key allow-list, duration/text bounds, and redirect protocol validation.
+- The native host's stdout is protocol-only. Diagnostics must use stderr or the
+  structured error response; any plain stdout text corrupts message framing.
 - Treat values read from the options form as untrusted. Validate durations as
   finite positive numbers when changing that flow.
 - Do not render configurable text with `innerHTML`. Keep the existing safe
@@ -107,6 +125,9 @@ node --check timeoutModal.js
 node --check popup/options.js
 node --check background.js
 Get-Content -Raw manifest.json | ConvertFrom-Json | Out-Null
+Get-Content -Raw native-host/config.example.json | ConvertFrom-Json | Out-Null
+Get-Content -Raw native-host/be.brucity.inactivity_detection.example.json | ConvertFrom-Json | Out-Null
+powershell.exe -ExecutionPolicy Bypass -File native-host/test-host.ps1
 ```
 
 If `web-ext` is already installed, also run `web-ext lint`; do not add it as a
@@ -130,6 +151,8 @@ For behavior changes, load `manifest.json` as a temporary add-on from
 9. An invalid redirect URL is rejected by the popup; a missing stored value
    safely redirects to `about:blank`.
 10. Any affected itsme/FAS exception still follows its documented branch.
+11. A valid native `config.json` imports every editable option plus `hostname`
+    and `ip`; an invalid response leaves existing storage unchanged.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;

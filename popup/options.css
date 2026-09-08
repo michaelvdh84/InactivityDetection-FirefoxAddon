@@ -25,6 +25,37 @@
     width: 70%;
 }
 
+.options-machine label {
+    display: inline-block;
+    width: 25%;
+}
+
+.options-machine input {
+    box-sizing: border-box;
+    width: 70%;
+}
+
+.options-machine input[readonly] {
+    background: #f2f2f2;
+}
+
+#importNativeConfigBtn {
+    padding: 8px;
+}
+
+#nativeConfigStatus {
+    min-height: 1.2em;
+    margin-bottom: 0;
+}
+
+.status-success {
+    color: #137333;
+}
+
+.status-error {
+    color: #b3261e;
+}
+
 .options-text label {
     display: inline-block;
     width: 40%;

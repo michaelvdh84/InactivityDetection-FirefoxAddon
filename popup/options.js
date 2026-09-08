@@ -9,7 +9,9 @@ const defaultParameters = {
     titleNL: 'Inactiviteit gedetecteerd !',
     txtNL: 'Wil je de sessie open houden?',
     titleEN: 'Inactivity detected !',
-    txtEN: 'Do you want to keep the session open?'
+    txtEN: 'Do you want to keep the session open?',
+    hostname: '',
+    ip: ''
 };
 
 // Initialiser les paramètres par défaut si non définis
@@ -38,7 +40,7 @@ async function initializeDefaultParameters() {
 
 // Charger les paramètres existants et remplir le formulaire
 function getSavedParameters() {
-    browser.storage.local.get(null).then((results) => {
+    return browser.storage.local.get(null).then((results) => {
         let keys = Object.keys(results);
         for (let key of keys) {
             let value = results[key];
@@ -124,6 +126,31 @@ btnTimeoutModifier.addEventListener("click", function () {
         console.log("Parameters saved successfully!");
         alert("Settings have been updated.");
     });
+});
+
+const importNativeConfigButton = document.getElementById("importNativeConfigBtn");
+const nativeConfigStatus = document.getElementById("nativeConfigStatus");
+
+importNativeConfigButton.addEventListener("click", async function () {
+    importNativeConfigButton.disabled = true;
+    nativeConfigStatus.className = "";
+    nativeConfigStatus.textContent = "Import in progress…";
+
+    try {
+        const result = await browser.runtime.sendMessage({ type: "refresh-native-config" });
+        if (!result?.ok) {
+            throw new Error(result?.error || "The native host did not return a configuration.");
+        }
+
+        await getSavedParameters();
+        nativeConfigStatus.className = "status-success";
+        nativeConfigStatus.textContent = `Imported from ${result.hostname || "unknown host"} (${result.ip || "no IP"}).`;
+    } catch (error) {
+        nativeConfigStatus.className = "status-error";
+        nativeConfigStatus.textContent = `Import failed: ${error.message || error}`;
+    } finally {
+        importNativeConfigButton.disabled = false;
+    }
 });
 
 // Gérer les erreurs

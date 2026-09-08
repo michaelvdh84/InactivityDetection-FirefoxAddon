@@ -1,0 +1,11 @@
+{
+  "modalAfter": 60,
+  "popupLife": 30,
+  "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/",
+  "titleFR": "Inactivité détectée !",
+  "txtFR": "Voulez-vous maintenir la session ouverte ?",
+  "titleNL": "Inactiviteit gedetecteerd !",
+  "txtNL": "Wil je de sessie open houden?",
+  "titleEN": "Inactivity detected!",
+  "txtEN": "Do you want to keep the session open?"
+}
