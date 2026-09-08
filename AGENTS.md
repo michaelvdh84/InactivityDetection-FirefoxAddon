@@ -41,6 +41,11 @@ There is no automated test suite or generated output in the repository.
   modal, cancel its grace-period timeout, and restart idle detection.
 - `redirectUrl` defaults to `about:blank` and accepts `about:blank` or an
   absolute HTTP(S) URL.
+- When the current document matches `redirectUrl`, the idle interval must not
+  start and activity listeners must not be registered. Detection begins only
+  after navigation to a different page. Match only the HTTP(S) origin and
+  normalized pathname; ignore every query parameter, fragment, and trailing
+  slash difference.
 - Choosing **Exit**, allowing the grace period to expire, or reaching an exact
   FAS `itsme/refused` URL sends a `reset-session` message to `background.js`.
 - When the current page contains `#header-sign-out[data-logout-url]`, resolve
@@ -84,9 +89,8 @@ There is no automated test suite or generated output in the repository.
 - Content scripts run in arbitrary web pages. Avoid leaking globals, replacing
   page behavior, or assuming a specific page structure outside the documented
   site exceptions.
-- The modal stylesheet is already injected through `manifest.json`.
-  `loadCSS()` in `timeoutModal.js` is legacy code that points to an unbundled
-  `style.css`; do not rely on it or add a second stylesheet injection path.
+- The modal stylesheet is injected through `manifest.json`; do not add a second
+  runtime stylesheet injection path.
 - Keep storage key names backward compatible unless migration is part of the
   task: `modalAfter`, `popupLife`, `titleFR`, `txtFR`, `titleNL`, `txtNL`,
   `titleEN`, `txtEN`, `epnLang`, and `redirectUrl`.
@@ -112,17 +116,20 @@ For behavior changes, load `manifest.json` as a temporary add-on from
 `about:debugging#/runtime/this-firefox` and verify with short configured values:
 
 1. Activity postpones the modal.
-2. Inactivity shows exactly one modal.
-3. **Continue** removes it and starts a fresh idle period.
-4. On a Dynamics page containing the sign-out button, **Exit** and grace-period
+2. The configured start page remains idle indefinitely, including after mouse,
+   touch, click, and keyboard interaction and after a completed reset redirect.
+3. Navigation from the start page to another page starts normal detection.
+4. Inactivity shows exactly one modal.
+5. **Continue** removes it and starts a fresh idle period.
+6. On a Dynamics page containing the sign-out button, **Exit** and grace-period
    expiry visit its logout URL before showing `reset.html`, clearing the
    session, and reaching the configured URL.
-5. Cookies, local/session storage, IndexedDB, and service worker state from a
+7. Cookies, local/session storage, IndexedDB, and service worker state from a
    test site are absent after reset.
-6. The extension settings survive cleanup and reopening the toolbar popup.
-7. An invalid redirect URL is rejected by the popup; a missing stored value
+8. The extension settings survive cleanup and reopening the toolbar popup.
+9. An invalid redirect URL is rejected by the popup; a missing stored value
    safely redirects to `about:blank`.
-8. Any affected itsme/FAS exception still follows its documented branch.
+10. Any affected itsme/FAS exception still follows its documented branch.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;

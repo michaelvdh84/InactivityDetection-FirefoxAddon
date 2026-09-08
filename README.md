@@ -32,6 +32,15 @@ The EPN Inactivity Detection extension monitors activity in Firefox and displays
 
 The redirect URL must use `http://` or `https://`; `about:blank` is also accepted as a safe fallback.
 
+When the configured redirect URL is loaded, inactivity detection is completely
+disabled on that page. Mouse, touch, click, and keyboard events do not start a
+timer. Detection starts normally after navigation to any other page, preventing
+an unattended kiosk on its start page from repeatedly resetting and
+redirecting. Query parameters, URL fragments, and a trailing slash difference
+are ignored when recognizing the start page. For example, a configured URL
+without kiosk parameters still matches the same page when those parameters are
+present in the loaded URL.
+
 ## Session reset
 
 The reset is triggered by the **Exit** button, expiry of the modal's grace period, or the existing FAS `itsme/refused` exception.
@@ -92,6 +101,7 @@ identity provider.
   - Added an extension background script and an intermediate reset page.
   - Added automatic Dynamics Power Pages logout through the header's
     `data-logout-url` before local cleanup.
+  - Disabled inactivity detection completely on the configured start page.
 - **02-05-2025**:
   - Refactored promises for better readability.
   - Added default values for `showModal`, `popupLife`, `title`, and `message`.

@@ -1,25 +1,17 @@
 let timer, currSeconds = 0;
 let sessionResetRequested = false;
-let url, timeout;
+let activityDetectionEnabled = false;
+
+const activityEvents = [
+    "mousemove",
+    "mousedown",
+    "touchstart",
+    "click",
+    "keypress"
+];
 
 //This is the GET value passed by the EPNLauncher to define the language
-let epnAutoParamLang = "iclangplug";
-
-//Inject Custom CSS file
-function loadCSS() {
-    var cssId = 'InactivityExtCSS';  
-    if (!document.getElementById(cssId))
-    {
-        var head  = document.getElementsByTagName('head')[0];
-        var link  = document.createElement('link');
-        link.id   = cssId;
-        link.rel  = 'stylesheet';
-        link.type = 'text/css';
-        link.href = 'style.css';
-        link.media = 'all';
-        head.appendChild(link);
-    }
-}
+const epnAutoParamLang = "iclangplug";
 
 //This function resets the timer if an activity is detected
 function resetTimer() {
@@ -28,35 +20,25 @@ function resetTimer() {
     clearInterval(timer);
 
     currSeconds = 0;
-    modalTime = browser.storage.local.get("modalAfter")
-    //console.log("Show Modal Popup After :" + modalTime)
     /* Set a new interval */
-    timer = 
-        setInterval(function () {
+    timer = setInterval(function () {
         browser.storage.local.get("modalAfter").then(showModal, onError);
     }, 1000);
 }
 
-// function resetTimer() {
-//     console.log("Reset Counter !");
-//     clearInterval(timer);
+function enableActivityDetection() {
+    if (activityDetectionEnabled) {
+        return;
+    }
 
-//     currSeconds = 0;
+    activityDetectionEnabled = true;
+    for (const eventName of activityEvents) {
+        window.addEventListener(eventName, resetTimer);
+    }
+    resetTimer();
+}
 
-//     // Resolve the Promise to get the value of "modalAfter"
-//     browser.storage.local.get("modalAfter").then((result) => {
-//         // Assign a default value of 10 seconds if modalAfter is undefined
-//         const modalTime = result.modalAfter ?? 60; // Default to 10 seconds
-//         console.log("Show Modal Popup After :" + modalTime);
-
-//         /* Set a new interval */
-//         timer = setInterval(function () {
-//             browser.storage.local.get("modalAfter").then(showModal, onError);
-//         }, 1000);
-//     }).catch(onError);
-// }
-
-// WARNING : Promise = cascade function processing  
+// WARNING : Promise = cascade function processing
 // The popup will be displayed by calling "popupLife" function
 function startIdleTimer(allowedIdleTime) {
               
@@ -112,14 +94,7 @@ if (currentUrl.includes(urlContains)) {
     console.log("It's Me Site !");
     var phoneForm = document.getElementById('phoneForm');
     if (phoneForm != null) {
-        resetTimer();
-        loadCSS();
-        window.onload = resetTimer;
-        window.onmousemove = resetTimer;
-        window.onmousedown = resetTimer;
-        window.ontouchstart = resetTimer;
-        window.onclick = resetTimer;
-        window.onkeypress = resetTimer;
+        enableActivityDetection();
     }
 
 } else if ((currentUrl.includes("https://idp.iamfas.belgium.be/fas/oauth2/authorize")) || (currentUrl.includes("https://idp.iamfas.int.belgium.be/fas/oauth2/authorize"))) {
@@ -135,14 +110,16 @@ else if ((currentUrl == "https://idp.iamfas.int.belgium.be/fasui/itsme/refused")
     requestSessionReset();
 }
 else {
-    resetTimer();
-    loadCSS()
-    window.onload = resetTimer;
-    window.onmousemove = resetTimer;
-    window.onmousedown = resetTimer;
-    window.ontouchstart = resetTimer;
-    window.onclick = resetTimer;
-    window.onkeypress = resetTimer;
+    browser.storage.local.get("redirectUrl").then(({ redirectUrl }) => {
+        if (isConfiguredStartPage(currentUrl, redirectUrl)) {
+            console.log("Start page detected, inactivity timer disabled.");
+        } else {
+            enableActivityDetection();
+        }
+    }, (error) => {
+        onError(error);
+        enableActivityDetection();
+    });
 }
 
 //Promise
@@ -169,6 +146,41 @@ function logItem () {
 
 function onError(error) {
     console.log(error);
+}
+
+function isConfiguredStartPage(pageUrl, redirectUrl) {
+    if (!redirectUrl || redirectUrl === "about:blank") {
+        return false;
+    }
+
+    try {
+        const page = new URL(pageUrl);
+        const startPage = new URL(redirectUrl);
+
+        if (
+            !["http:", "https:"].includes(page.protocol) ||
+            !["http:", "https:"].includes(startPage.protocol)
+        ) {
+            return false;
+        }
+
+        return (
+            page.origin === startPage.origin &&
+            normalizePathname(page.pathname) ===
+                normalizePathname(startPage.pathname)
+        );
+    } catch (error) {
+        onError(error);
+        return false;
+    }
+}
+
+function normalizePathname(pathname) {
+    if (pathname.length <= 1) {
+        return pathname;
+    }
+
+    return pathname.replace(/\/+$/, "");
 }
 
 function requestSessionReset() {

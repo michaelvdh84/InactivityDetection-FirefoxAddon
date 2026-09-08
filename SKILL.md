@@ -39,6 +39,8 @@ defaults synchronized between the options code and the content script.
 Any timer refactor must maintain these transitions:
 
 ```text
+configured start page -> keep inactivity detection disabled
+navigation to another page -> start idle detection
 page activity -> reset idle period
 idle period expires -> show one confirmation modal
 Continue -> remove modal + cancel close timeout + restart idle period
@@ -47,6 +49,11 @@ Exit or grace expiry -> request cleanup -> redirect
 
 Audit interval, timeout, modal, message, and listener cleanup together. Test
 with small durations so a duplicate timer, modal, or reset is observable.
+Compare the current URL with `redirectUrl` using only the HTTP(S) origin and
+normalized pathname. Ignore all query parameters, fragments, and trailing slash
+differences. Do not register activity listeners on that page and do not persist
+a global "session started" flag: navigation away from the configured start page
+is enough for the next content script instance to start its timer normally.
 
 ## Preserve the reset contract
 
@@ -81,9 +88,7 @@ because they affect every normal website in the Firefox profile.
 - Remember that the content script matches all URLs. Avoid page-specific DOM
   assumptions outside the explicit exceptions, and avoid disturbing host-page
   event handlers when changing activity detection.
-- Treat the CSS entry in `manifest.json` as the active stylesheet injection.
-  The legacy `loadCSS()` helper references a `style.css` file that is not in the
-  repository; do not mistake it for the source of the modal's styles.
+- Treat the CSS entry in `manifest.json` as the only stylesheet injection path.
 - Keep injected modal IDs/classes aligned with `inactivityplugin.css`.
 - Keep privileged cleanup and tab navigation in `background.js`; content scripts
   should only send the reset request.
