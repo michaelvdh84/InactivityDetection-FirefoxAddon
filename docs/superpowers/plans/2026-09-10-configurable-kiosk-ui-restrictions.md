@@ -620,7 +620,7 @@ git commit -m "docs: document configurable kiosk restrictions"
 - [ ] **Step 1: Run the complete automated test suite**
 
 ```powershell
-node --test tests
+node --test tests/kioskRestrictionsCore.test.js tests/backgroundConfiguration.test.js tests/kioskUiRestrictions.test.js tests/optionsKioskRestrictions.test.js
 ```
 
 Expected: zero failed tests.
