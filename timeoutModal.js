@@ -110,7 +110,7 @@ else if ((currentUrl == "https://idp.iamfas.int.belgium.be/fasui/itsme/refused")
     requestSessionReset();
 }
 else {
-    browser.storage.local.get("redirectUrl").then(({ redirectUrl }) => {
+    getStartupRedirectUrl().then((redirectUrl) => {
         if (isConfiguredStartPage(currentUrl, redirectUrl)) {
             console.log("Start page detected, inactivity timer disabled.");
         } else {
@@ -120,6 +120,21 @@ else {
         onError(error);
         enableActivityDetection();
     });
+}
+
+async function getStartupRedirectUrl() {
+    try {
+        const result = await browser.runtime.sendMessage({
+            type: "get-effective-config"
+        });
+        return result.config.redirectUrl;
+    } catch (error) {
+        // Keep the manually saved configuration usable if the background
+        // context cannot answer during browser startup.
+        onError(error);
+        const { redirectUrl } = await browser.storage.local.get("redirectUrl");
+        return redirectUrl;
+    }
 }
 
 //Promise

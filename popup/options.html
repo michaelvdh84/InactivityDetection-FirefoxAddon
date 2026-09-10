@@ -21,6 +21,21 @@
         </div>
     </div>
     <hr/>
+    <div class="options-machine">
+        <h2>Managed configuration</h2>
+        <div class="options-field">
+            <label for="hostname">Hostname:</label>
+            <input type="text" id="hostname" readonly>
+        </div>
+        <div class="options-field">
+            <label for="ip">IP:</label>
+            <input type="text" id="ip" readonly>
+        </div>
+        <button type="button" id="refreshManagedConfigBtn">Reload managed configuration</button>
+        <button type="button" id="clearLocalOverridesBtn">Restore managed values</button>
+        <p id="managedConfigStatus" role="status" aria-live="polite"></p>
+    </div>
+    <hr/>
     <div class="options-text">
         <div class="options-field">
             <h2>FR:</h2>
