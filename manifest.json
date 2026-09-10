@@ -36,7 +36,7 @@
     "content_scripts": [
       {
       "matches": ["<all_urls>"],
-      "js": ["fasKioskUi.js", "timeoutModal.js"],
+      "js": ["kioskRestrictionsCore.js", "kioskUiRestrictions.js", "timeoutModal.js"],
       "css":["inactivityplugin.css"]
       }
     ]
