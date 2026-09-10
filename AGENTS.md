@@ -25,10 +25,10 @@ step unless the task explicitly requires one.
 - `popup/options.js`: default settings, form hydration, and persistence through
   `browser.storage.local`.
 - `popup/options.css`: configuration popup styles.
-- `native-host/`: Windows PowerShell host, protocol test, example configuration,
-  and example Firefox native-host manifest.
-- `nativemessaging.md`: Windows installation, registry, validation, and
-  troubleshooting guide for the native host.
+- `managed-storage/`: deployable example of the Firefox Managed Storage
+  manifest associated with the extension ID.
+- `managedStorage.md`: Windows Managed Storage installation, registry,
+  deployment, validation, and troubleshooting guide.
 - `icons/`: packaged extension icons.
 - `README.md`: manual installation and user-facing behavior.
 
@@ -38,17 +38,18 @@ There is no automated test suite or generated output in the repository.
 
 - Stored durations are seconds. `timeoutModal.js` converts them to milliseconds
   for `setInterval` and `setTimeout`.
-- Native configuration uses host name `be.brucity.inactivity_detection`. It is
-  imported on extension installation, Firefox startup, or manual popup request.
-- Content scripts must await the startup native-import attempt before using
-  `redirectUrl` to decide whether inactivity detection starts. If it fails,
-  continue with the value already saved in extension storage.
-- Native imports must be atomic and allow-listed: validate every supported key
-  before writing any of them. A missing host or invalid response preserves the
-  last valid configuration.
-- `hostname` and `ip` come from the native host and are read-only in the popup.
-  `config.json` must contain every editable option but does not contain these
-  two host-derived values.
+- Managed configuration is read from `browser.storage.managed` when Firefox
+  starts. Content scripts must await resolution before using `redirectUrl` to
+  decide whether inactivity detection starts.
+- Managed configuration is atomic and allow-listed: validate every supported
+  key before applying any of it. A missing or invalid manifest preserves the
+  last valid local configuration.
+- Configuration precedence is defaults, then valid Managed Storage, then the
+  `browser.storage.local.localOverrides` object when `allowLocalOverrides` is
+  true. Persist the resolved values under the backward-compatible top-level
+  storage keys consumed by the content script.
+- `hostname` and `ip` are supplied by Managed Storage and remain read-only in
+  the popup. Local overrides apply only to editable form settings.
 - `modalAfter` defaults to 60 seconds and `popupLife` defaults to 30 seconds.
   Defaults also exist in `popup/options.js`; keep both locations consistent when
   changing them.
@@ -86,12 +87,13 @@ There is no automated test suite or generated output in the repository.
 ## Implementation guidance
 
 - Use plain JavaScript, DOM APIs, and Firefox's promise-based `browser.*` API.
-- Content scripts and the popup must request privileged Native Messaging work
-  through `background.js`; keep `runtime.sendNativeMessage()` in the background.
-- Never trust native-host JSON merely because it is local. Keep the explicit
-  key allow-list, duration/text bounds, and redirect protocol validation.
-- The native host's stdout is protocol-only. Diagnostics must use stderr or the
-  structured error response; any plain stdout text corrupts message framing.
+- Resolve Managed Storage and local overrides in `background.js`; content
+  scripts and the popup consume the validated effective configuration.
+- Never trust managed or local JSON merely because it is machine-controlled.
+  Keep the explicit key allow-list, duration/text bounds, redirect protocol
+  validation, and all-or-nothing managed application.
+- `browser.storage.managed` is read-only. Never attempt to write it from the
+  extension; options-page changes belong in `localOverrides`.
 - Treat values read from the options form as untrusted. Validate durations as
   finite positive numbers when changing that flow.
 - Do not render configurable text with `innerHTML`. Keep the existing safe
@@ -128,9 +130,7 @@ node --check timeoutModal.js
 node --check popup/options.js
 node --check background.js
 Get-Content -Raw manifest.json | ConvertFrom-Json | Out-Null
-Get-Content -Raw native-host/config.example.json | ConvertFrom-Json | Out-Null
-Get-Content -Raw native-host/be.brucity.inactivity_detection.example.json | ConvertFrom-Json | Out-Null
-powershell.exe -ExecutionPolicy Bypass -File native-host/test-host.ps1
+Get-Content -Raw managed-storage/michael.vanderhoudelinghen@i-city.brucity.be.json | ConvertFrom-Json | Out-Null
 ```
 
 If `web-ext` is already installed, also run `web-ext lint`; do not add it as a
@@ -154,8 +154,11 @@ For behavior changes, load `manifest.json` as a temporary add-on from
 9. An invalid redirect URL is rejected by the popup; a missing stored value
    safely redirects to `about:blank`.
 10. Any affected itsme/FAS exception still follows its documented branch.
-11. A valid native `config.json` imports every editable option plus `hostname`
-    and `ip`; an invalid response leaves existing storage unchanged.
+11. A valid Managed Storage manifest supplies every option plus `hostname` and
+    `ip`; an absent or invalid manifest falls back to local values.
+12. With `allowLocalOverrides: true`, **Validate** overrides editable managed
+    values and **Restore managed values** removes those overrides. With `false`,
+    editable controls are locked.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;

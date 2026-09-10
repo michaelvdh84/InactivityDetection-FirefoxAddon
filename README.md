@@ -11,8 +11,8 @@ The EPN Inactivity Detection extension monitors activity in Firefox and displays
 - Clear cookies, cache, site storage, browsing history, form data, and download history without closing Firefox.
 - Multilingual support for popup messages (French, Dutch, English).
 - Customizable popup messages and titles for each language.
-- Import all settings from a Windows Native Messaging host and expose the
-  kiosk hostname and IPv4 address.
+- Load all kiosk settings, including hostname and IP, from Firefox Managed
+  Storage without launching a local process.
 - Firefox Manifest V3 extension.
 
 ## Installation
@@ -32,12 +32,13 @@ The EPN Inactivity Detection extension monitors activity in Firefox and displays
    - **Popup Messages**: Customize the title and message for each supported language (FR, NL, EN).
 3. Save your settings by clicking the **Validate** button.
 
-For managed kiosks, the same values can come from the Native Messaging host's
-`config.json`. At Firefox startup, the extension attempts this import before
-starting inactivity detection. If the host or file is unavailable or invalid,
-the values last saved from `options.html` remain in use. Click **Import
-config.json** to trigger a new attempt at any time. Installation and validation
-are documented in [nativemessaging.md](nativemessaging.md).
+For managed kiosks, the same values can come from a Firefox Managed Storage
+manifest generated before Firefox starts. A registry key associates that JSON
+file with the extension ID. If it is unavailable or invalid, the last local
+settings remain in use. When `allowLocalOverrides` is enabled, **Validate**
+saves a separate local override; **Restore managed values** removes it.
+Installation and validation are documented in
+[managedStorage.md](managedStorage.md).
 
 The redirect URL must use `http://` or `https://`; `about:blank` is also accepted as a safe fallback.
 
@@ -83,7 +84,10 @@ The reset clears:
 - saved form data;
 - download history.
 
-Downloaded files and saved passwords are not deleted. The extension's own `browser.storage.local` data is preserved, including timeouts, translations, language, redirect URL, hostname, and IP metadata.
+Downloaded files and saved passwords are not deleted. The extension's own
+`browser.storage.local` data is preserved, including resolved settings and
+local overrides. Managed Storage is read-only and remains controlled by the
+machine administrator.
 
 The cleanup is browser-wide for normal web content in the current Firefox profile. For kiosk use, dedicate the profile to the portal and avoid unrelated browsing in that profile.
 
@@ -95,12 +99,10 @@ identity provider.
 
 ## Permissions
 
-- `storage`: saves the extension configuration.
+- `storage`: reads the managed configuration and saves local overrides.
 - `tabs`: moves the tab to the reset page and then to the configured destination.
 - `browsingData`: removes normal website session and browsing data.
 - `activeTab`: retained for compatibility with the existing toolbar workflow.
-- `nativeMessaging`: imports the kiosk configuration from the registered local
-  Windows host.
 
 ## Improvements
 
@@ -113,8 +115,8 @@ identity provider.
   - Added automatic Dynamics Power Pages logout through the header's
     `data-logout-url` before local cleanup.
   - Disabled inactivity detection completely on the configured start page.
-  - Added configuration import through a Windows Native Messaging host,
-    including read-only hostname and IP metadata.
+  - Added configuration through Firefox Managed Storage, including read-only
+    hostname and IP metadata and optional local overrides.
 - **02-05-2025**:
   - Refactored promises for better readability.
   - Added default values for `showModal`, `popupLife`, `title`, and `message`.

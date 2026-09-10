@@ -39,11 +39,12 @@
     background: #f2f2f2;
 }
 
-#importNativeConfigBtn {
+#refreshManagedConfigBtn,
+#clearLocalOverridesBtn {
     padding: 8px;
 }
 
-#nativeConfigStatus {
+#managedConfigStatus {
     min-height: 1.2em;
     margin-bottom: 0;
 }

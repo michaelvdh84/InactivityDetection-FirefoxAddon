@@ -124,10 +124,10 @@ else {
 
 async function getStartupRedirectUrl() {
     try {
-        const { redirectUrl } = await browser.runtime.sendMessage({
-            type: "get-startup-config"
+        const result = await browser.runtime.sendMessage({
+            type: "get-effective-config"
         });
-        return redirectUrl;
+        return result.config.redirectUrl;
     } catch (error) {
         // Keep the manually saved configuration usable if the background
         // context cannot answer during browser startup.

@@ -1,6 +1,6 @@
 ---
 name: maintain-firefox-inactivity-extension
-description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension and Windows Native Messaging host, including timers, session cleanup, redirects, managed JSON configuration, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
+description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension, including timers, session cleanup, redirects, Firefox Managed Storage, local configuration overrides, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
 ---
 
 # Maintain the Firefox inactivity extension
@@ -19,12 +19,13 @@ Trace changes through the smallest relevant path:
   `reset.html` -> `browsingData.remove()` -> configured `redirectUrl`.
 - Settings or defaults: `popup/options.html` -> `popup/options.js` ->
   `browser.storage.local` reads in `timeoutModal.js`.
-- Managed settings: `native-host/config.json` -> framed host response ->
-  `runtime.sendNativeMessage()` in `background.js` -> validated atomic write to
-  `browser.storage.local` -> popup and content-script consumers.
+- Managed settings: Windows Managed Storage manifest ->
+  `browser.storage.managed` -> validation and precedence resolution in
+  `background.js` -> effective top-level `browser.storage.local` keys -> popup
+  and content-script consumers.
 - At startup, synchronize the content script's start-page decision with the
-  first native import attempt. A missing host or config falls back to the last
-  values saved by the options UI without clearing or replacing them.
+  first managed-resolution attempt. A missing or invalid manifest falls back to
+  the last local configuration without clearing it.
 - Language: the page's `iclangplug` query parameter -> stored `epnLang` ->
   `titleFR`/`txtFR`, `titleNL`/`txtNL`, or `titleEN`/`txtEN` -> modal text.
 - Site exception: evaluate the ordered itsme/FAS URL branches in
@@ -99,22 +100,20 @@ because they affect every normal website in the Firefox profile.
 - Keep privileged cleanup and tab navigation in `background.js`; content scripts
   should only send the reset request.
 
-## Preserve the Native Messaging contract
+## Preserve the Managed Storage contract
 
-- Keep the host name `be.brucity.inactivity_detection` aligned across
-  `background.js`, the example native manifest, the Windows registry guide, and
-  any deployment automation.
-- Keep the Gecko extension ID aligned with the native manifest's
-  `allowed_extensions` entry.
-- Import all editable popup keys as one validated unit. Do not partially apply
-  malformed configuration, copy unknown keys, or erase the last valid settings
-  when the host is unavailable.
-- Derive `hostname` and `ip` in the host and expose them as read-only metadata.
-- Keep native stdout exclusively for four-byte-length-prefixed UTF-8 JSON.
-  Validate host changes with `native-host/test-host.ps1`.
-- Keep machine-specific `native-host/config.json` untracked. Update
-  `nativemessaging.md` when host installation, registry, schema, or diagnostics
-  change.
+- Keep the Gecko extension ID aligned across `manifest.json`, the managed
+  manifest's `name`, its filename, and the Windows `Mozilla\ManagedStorage`
+  registry key.
+- Treat managed settings as one validated unit. Do not partially apply malformed
+  configuration or copy unknown keys into the effective configuration.
+- Resolve precedence as defaults, managed values, then `localOverrides` only
+  when `allowLocalOverrides` is true. Keep the resolved top-level local keys for
+  backward-compatible consumers.
+- Never write to `browser.storage.managed`. Save only editable form values in
+  `browser.storage.local.localOverrides`; keep `hostname` and `ip` read-only.
+- Update `managedStorage.md` and its deployable JSON when the schema, registry,
+  precedence, or diagnostics change.
 
 ## Handle site exceptions deliberately
 
@@ -132,8 +131,7 @@ do not broaden a close condition without an explicit requirement.
 ## Verify the result
 
 Always run JavaScript syntax checks, including `background.js`, and parse
-`manifest.json`. For native-host changes, parse both example JSON files, check
-PowerShell syntax, and run the protocol test. Use `web-ext lint`
+`manifest.json` plus the Managed Storage example. Use `web-ext lint`
 when it is already available. For logic changes, perform or clearly request the
 manual Firefox scenarios listed in `AGENTS.md`; report any scenario not run.
 

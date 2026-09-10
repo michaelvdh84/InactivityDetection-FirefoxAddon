@@ -22,7 +22,7 @@
     </div>
     <hr/>
     <div class="options-machine">
-        <h2>Native configuration</h2>
+        <h2>Managed configuration</h2>
         <div class="options-field">
             <label for="hostname">Hostname:</label>
             <input type="text" id="hostname" readonly>
@@ -31,8 +31,9 @@
             <label for="ip">IP:</label>
             <input type="text" id="ip" readonly>
         </div>
-        <button type="button" id="importNativeConfigBtn">Import config.json</button>
-        <p id="nativeConfigStatus" role="status" aria-live="polite"></p>
+        <button type="button" id="refreshManagedConfigBtn">Reload managed configuration</button>
+        <button type="button" id="clearLocalOverridesBtn">Restore managed values</button>
+        <p id="managedConfigStatus" role="status" aria-live="polite"></p>
     </div>
     <hr/>
     <div class="options-text">
