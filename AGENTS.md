@@ -78,16 +78,18 @@ There is no automated test suite or generated output in the repository.
   not redirect to the portal before cleanup finishes.
 - Cleanup intentionally preserves the extension's `browser.storage.local`
   values and does not remove saved passwords or downloaded files.
-- The `iclangplug` URL parameter is stored as `epnLang`. Values containing `fr`,
-  `nl`, or `en` select the corresponding title, message, and button labels;
-  French is the fallback.
+- Select modal language from the current URL: `fr-BE` selects French, `nl-BE`
+  selects Belgian Dutch, and `en-US` selects English. French is the fallback.
+  The legacy `iclangplug` value may remain stored as `epnLang`, but modal
+  rendering must use the locale in the current URL.
 - Preserve the itsme/FAS exceptions unless a task explicitly changes them:
   detection on `itsme.be` starts only when `#phoneForm` exists; FAS authorization
   redirects do not start the timer; the exact FAS `itsme/refused` pages reset
   the session immediately.
 - Modal selectors (`#modalJS`, `#titleInactivity`, `#askingInactivity`,
-  `.modal-timeout`, `.modal-content-timeout`, and `.buttonTimeOut`) connect the
-  JavaScript and CSS. Update both files if a selector changes.
+  `.modal-timeout`, `.modal-content-timeout`, `.inactivity-warning-icon`,
+  `.inactivity-button-container`, and `.buttonTimeOut`) connect the JavaScript
+  and CSS. Update both files if a selector changes.
 
 ## Implementation guidance
 
@@ -122,7 +124,8 @@ There is no automated test suite or generated output in the repository.
   runtime stylesheet injection path.
 - Keep storage key names backward compatible unless migration is part of the
   task: `modalAfter`, `popupLife`, `titleFR`, `txtFR`, `titleNL`, `txtNL`,
-  `titleEN`, `txtEN`, `epnLang`, and `redirectUrl`.
+  `titleEN`, `txtEN`, `btnContinueFR`, `btnQuitFR`, `btnContinueNL`,
+  `btnQuitNL`, `btnContinueEN`, `btnQuitEN`, `epnLang`, and `redirectUrl`.
 - If user-visible behavior, defaults, installation, or cleanup scope changes,
   update `README.md`. Bump the version in `manifest.json` only when the
   requested release workflow calls for it.
@@ -166,6 +169,8 @@ For behavior changes, load `manifest.json` as a temporary add-on from
     `allowLocalOverrides: true`, **Unlock configuration** enables them,
     **Validate** saves editable values to local overrides, and **Use managed
     values** removes those overrides. With `false`, unlocking is disabled.
+13. URLs containing `fr-BE`, `nl-BE`, and `en-US` display the configured title,
+    message, quit label, and continue label for the matching language.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;

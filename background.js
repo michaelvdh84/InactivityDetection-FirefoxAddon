@@ -11,12 +11,18 @@ const DEFAULT_CONFIGURATION = {
     modalAfter: 60,
     popupLife: 30,
     redirectUrl: DEFAULT_REDIRECT_URL,
-    titleFR: "Inactivit&eacute; d&eacute;tect&eacute;e !",
-    txtFR: "Voulez-vous maintenir la session ouverte?",
-    titleNL: "Inactiviteit gedetecteerd !",
-    txtNL: "Wil je de sessie open houden?",
-    titleEN: "Inactivity detected !",
-    txtEN: "Do you want to keep the session open?",
+    titleFR: "Inactivité détectée",
+    txtFR: "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
+    btnContinueFR: "Oui, continuer ma session",
+    btnQuitFR: "Non, quitter",
+    titleNL: "Inactiviteit gedetecteerd",
+    txtNL: "U hebt de kiosk al enige tijd niet meer gebruikt.\nWilt u deze blijven gebruiken?",
+    btnContinueNL: "Ja, mijn sessie voortzetten",
+    btnQuitNL: "Nee, afsluiten",
+    titleEN: "Inactivity detected",
+    txtEN: "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
+    btnContinueEN: "Yes, continue my session",
+    btnQuitEN: "No, exit",
     hostname: "",
     ip: ""
 };
@@ -24,10 +30,16 @@ const DEFAULT_CONFIGURATION = {
 const CONFIG_TEXT_LIMITS = {
     titleFR: 500,
     txtFR: 2000,
+    btnContinueFR: 200,
+    btnQuitFR: 200,
     titleNL: 500,
     txtNL: 2000,
+    btnContinueNL: 200,
+    btnQuitNL: 200,
     titleEN: 500,
     txtEN: 2000,
+    btnContinueEN: 200,
+    btnQuitEN: 200,
     hostname: 255,
     ip: 255
 };
@@ -38,10 +50,16 @@ const EDITABLE_CONFIG_KEYS = [
     "redirectUrl",
     "titleFR",
     "txtFR",
+    "btnContinueFR",
+    "btnQuitFR",
     "titleNL",
     "txtNL",
+    "btnContinueNL",
+    "btnQuitNL",
     "titleEN",
-    "txtEN"
+    "txtEN",
+    "btnContinueEN",
+    "btnQuitEN"
 ];
 
 const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "hostname", "ip"];

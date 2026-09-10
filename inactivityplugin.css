@@ -1,90 +1,172 @@
-#titleInactivity {
-    font-size: xx-large;
-    font-weight: bold;
-    color: #00BABE;
-    font-family: Arial, Helvetica, sans-serif;
-}
-
-#askingInactivity {
-    font-size: x-large;
-    font-family: Arial, Helvetica, sans-serif;
-    color: #3a3a3a;
-}
-
-/*.buttonTimeOut {
-    width: 200px;
-    height: 75px;
-}*/
-
-.buttonTimeOut {
-  box-shadow:inset 0px 1px 0px 0px #ffffff;
-	background:linear-gradient(to bottom, #f9f9f9 5%, #e9e9e9 100%);
-	background-color:#f9f9f9;
-	border-radius:6px;
-	border:1px solid #dcdcdc;
-	display:inline-block;
-	cursor:pointer;
-	color:#666666;
-	font-family:Arial;
-	font-size:15px;
-	font-weight:bold;
-	padding:6px 24px;
-	text-decoration:none;
-	text-shadow:0px 1px 0px #ffffff;
-  width: 200px;
-  height: 75px;
-}
-
-.buttonTimeOut:hover {
-  background:linear-gradient(to bottom, #e9e9e9 5%, #f9f9f9 100%);
-	background-color:#e9e9e9;
-}
-
-.buttonTimeOut:active {
-	position:relative;
-	top:1px;
-}
-
-.modal-timeout {
-    /*display: block; /* Hidden by default */
-    position: fixed; /* Stay in place */
-    z-index: 1000000000; /* Sit on top */
-    padding-top: 100px; /* Location of the box */
+#modalJS.modal-timeout {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.42);
+    box-sizing: border-box;
+    display: flex;
+    height: 100vh;
+    justify-content: center;
     left: 0;
+    margin: 0;
+    overflow: auto;
+    padding: 24px;
+    position: fixed;
     top: 0;
-    width: 100%; /* Full width */
-    height: 100%; /* Full height */
-    overflow: auto; /* Enable scroll if needed */
-    background-color: rgb(0,0,0); /* Fallback color */
-    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-  }
-  
-  /* Modal Content */
-  .modal-content-timeout {
-    background-color: #fefefe;
+    width: 100vw;
+    z-index: 2147483647;
+}
+
+#modalJS .modal-content-timeout {
+    align-items: center;
+    background: #ffffff;
+    border: 0;
+    border-radius: 18px;
+    box-shadow: none;
+    box-sizing: border-box;
+    color: #303030;
+    display: flex;
+    flex-direction: column;
+    font-family: Arial, Helvetica, sans-serif;
     margin: auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 60%;
-    border-radius: 15px;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2), 0px 6px 20px rgba(0, 0, 0, 0.19); /* Ajout de l'ombre */
-    
-  }
-  .modal-content-timeout h1{
-    margin-bottom: 20px; /* Ajoute un espace sous le titre */
-  }
-  /* The Close Button 
-  .close {
-    color: #aaaaaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-  }
-  
-  .close:hover,
-  .close:focus {
-    color: #000;
-    text-decoration: none;
+    max-width: 1068px;
+    min-height: 632px;
+    padding: 60px 64px 40px;
+    text-align: center;
+    width: 100%;
+}
+
+#modalJS .inactivity-warning-icon {
+    align-items: center;
+    border: 6px solid #f5792a;
+    border-radius: 50%;
+    box-sizing: border-box;
+    color: #f5792a;
+    display: flex;
+    flex: 0 0 auto;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 94px;
+    font-weight: 700;
+    height: 168px;
+    justify-content: center;
+    line-height: 1;
+    margin-bottom: 77px;
+    padding: 0 0 4px;
+    width: 168px;
+}
+
+#modalJS #titleInactivity {
+    color: #303030;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0 0 24px;
+}
+
+#modalJS #askingInactivity {
+    color: #777777;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1.4;
+    margin: 0 0 58px;
+    max-width: 950px;
+    white-space: pre-line;
+}
+
+#modalJS .inactivity-button-container {
+    align-items: stretch;
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    width: 100%;
+}
+
+#modalJS .buttonTimeOut {
+    appearance: none;
+    border: 0;
+    border-radius: 12px;
+    box-shadow: none;
+    box-sizing: border-box;
     cursor: pointer;
-  }
-  */
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 23px;
+    font-weight: 700;
+    line-height: 1.2;
+    min-height: 95px;
+    padding: 20px 34px;
+    text-shadow: none;
+}
+
+#modalJS .button-timeout-quit {
+    background: #f2f2f2;
+    color: #111111;
+    min-width: 240px;
+}
+
+#modalJS .button-timeout-continue {
+    background: #08adb1;
+    color: #ffffff;
+    min-width: 422px;
+}
+
+#modalJS .button-timeout-quit:hover,
+#modalJS .button-timeout-quit:focus-visible {
+    background: #e5e5e5;
+}
+
+#modalJS .button-timeout-continue:hover,
+#modalJS .button-timeout-continue:focus-visible {
+    background: #07979b;
+}
+
+#modalJS .buttonTimeOut:focus-visible {
+    outline: 4px solid #1f5f99;
+    outline-offset: 4px;
+}
+
+#modalJS .buttonTimeOut:active {
+    transform: translateY(1px);
+}
+
+@media (max-width: 760px) {
+    #modalJS.modal-timeout {
+        align-items: flex-start;
+        padding: 16px;
+    }
+
+    #modalJS .modal-content-timeout {
+        min-height: 0;
+        padding: 36px 24px 30px;
+    }
+
+    #modalJS .inactivity-warning-icon {
+        border-width: 4px;
+        font-size: 62px;
+        height: 112px;
+        margin-bottom: 36px;
+        width: 112px;
+    }
+
+    #modalJS #titleInactivity {
+        font-size: 28px;
+    }
+
+    #modalJS #askingInactivity {
+        font-size: 20px;
+        margin-bottom: 36px;
+    }
+
+    #modalJS .inactivity-button-container {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    #modalJS .buttonTimeOut,
+    #modalJS .button-timeout-quit,
+    #modalJS .button-timeout-continue {
+        font-size: 19px;
+        min-height: 72px;
+        min-width: 0;
+        width: 100%;
+    }
+}

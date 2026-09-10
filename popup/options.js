@@ -6,12 +6,18 @@ const defaultParameters = {
     modalAfter: 60,
     popupLife: 30,
     redirectUrl: "about:blank",
-    titleFR: "Inactivit&eacute; d&eacute;tect&eacute;e !",
-    txtFR: "Voulez-vous maintenir la session ouverte?",
-    titleNL: "Inactiviteit gedetecteerd !",
-    txtNL: "Wil je de sessie open houden?",
-    titleEN: "Inactivity detected !",
-    txtEN: "Do you want to keep the session open?",
+    titleFR: "Inactivité détectée",
+    txtFR: "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
+    btnContinueFR: "Oui, continuer ma session",
+    btnQuitFR: "Non, quitter",
+    titleNL: "Inactiviteit gedetecteerd",
+    txtNL: "U hebt de kiosk al enige tijd niet meer gebruikt.\nWilt u deze blijven gebruiken?",
+    btnContinueNL: "Ja, mijn sessie voortzetten",
+    btnQuitNL: "Nee, afsluiten",
+    titleEN: "Inactivity detected",
+    txtEN: "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
+    btnContinueEN: "Yes, continue my session",
+    btnQuitEN: "No, exit",
     hostname: "",
     ip: ""
 };
@@ -22,10 +28,16 @@ const editableFieldIds = [
     "redirectUrl",
     "titleFR",
     "txtFR",
+    "btnContinueFR",
+    "btnQuitFR",
     "titleNL",
     "txtNL",
+    "btnContinueNL",
+    "btnQuitNL",
     "titleEN",
-    "txtEN"
+    "txtEN",
+    "btnContinueEN",
+    "btnQuitEN"
 ];
 
 const validateButton = document.getElementById("extTimeoutOptionbtn");
@@ -175,10 +187,16 @@ function readAndValidateForm() {
         redirectUrl,
         titleFR: document.getElementById("titleFR").value,
         txtFR: document.getElementById("txtFR").value,
+        btnContinueFR: document.getElementById("btnContinueFR").value,
+        btnQuitFR: document.getElementById("btnQuitFR").value,
         titleNL: document.getElementById("titleNL").value,
         txtNL: document.getElementById("txtNL").value,
+        btnContinueNL: document.getElementById("btnContinueNL").value,
+        btnQuitNL: document.getElementById("btnQuitNL").value,
         titleEN: document.getElementById("titleEN").value,
-        txtEN: document.getElementById("txtEN").value
+        txtEN: document.getElementById("txtEN").value,
+        btnContinueEN: document.getElementById("btnContinueEN").value,
+        btnQuitEN: document.getElementById("btnQuitEN").value
     };
 }
 

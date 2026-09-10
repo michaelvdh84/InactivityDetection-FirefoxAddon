@@ -36,6 +36,7 @@
 }
 
 .options-form input:disabled,
+.options-form textarea:disabled,
 .options-machine input[readonly] {
     background: #f2f2f2;
     color: #666;
@@ -60,14 +61,26 @@
 }
 
 .options-text label {
-    display: inline-block;
-    width: 40%;
-    float: left;
-    margin-top: 5px;
+    display: block;
+    font-weight: bold;
+    margin: 10px 0 4px;
 }
 
 .options-text textarea {
-    width: 55%;
+    box-sizing: border-box;
+    min-height: 64px;
+    resize: vertical;
+    width: 100%;
+}
+
+.options-text input {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.options-language {
+    border-bottom: 1px solid #e2e2e0;
+    padding-bottom: 14px;
 }
 
 hr {

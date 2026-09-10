@@ -153,10 +153,16 @@ function isCompleteConfiguration(config) {
         "redirectUrl",
         "titleFR",
         "txtFR",
+        "btnContinueFR",
+        "btnQuitFR",
         "titleNL",
         "txtNL",
+        "btnContinueNL",
+        "btnQuitNL",
         "titleEN",
-        "txtEN"
+        "txtEN",
+        "btnContinueEN",
+        "btnQuitEN"
     ];
 
     return Boolean(
@@ -292,41 +298,46 @@ function getPortalLogoutUrl() {
 
 async function getModalParameters(timer) {
     try {
-        const { epnLang } = await browser.storage.local.get("epnLang");
-        console.log("Debug valueEpnLang:", epnLang);
-
-        let languageKey = "txtFR"; // Default language is French
-        let languageTitleKey = "titleFR"; // Default title is French
-        let language = "fr"; // Default language is French
-        if (epnLang) {
-            if (epnLang.includes("nl")) {
-                languageKey = "txtNL";
-                languageTitleKey = "titleNL";
-                language = "nl";
-            } else if (epnLang.includes("en")) {
-                languageKey = "txtEN";
-                languageTitleKey = "titleEN";
-                language = "en";
-            } else if (epnLang.includes("fr")) {
-                languageKey = "txtFR";
-                languageTitleKey = "titleFR";
-                language = "fr";
-            }
-        }
+        const language = getPageLanguage(currentUrl);
+        const suffix = language.toUpperCase();
+        const languageKey = `txt${suffix}`;
+        const languageTitleKey = `title${suffix}`;
+        const continueButtonKey = `btnContinue${suffix}`;
+        const quitButtonKey = `btnQuit${suffix}`;
         // Read the texts from the same resolved object as the timers. This
         // prevents a managed delay from being mixed with stale local labels.
         const modalText = effectiveConfiguration[languageKey];
         const modalTitle = effectiveConfiguration[languageTitleKey];
+        const continueButtonText = effectiveConfiguration[continueButtonKey];
+        const quitButtonText = effectiveConfiguration[quitButtonKey];
         console.log(`Show modal in ${languageKey}:`, modalText);
 
         // Call the appropriate function to display the modal
-        htmlModal(modalText, modalTitle, language, timer);
+        htmlModal(
+            modalText,
+            modalTitle,
+            continueButtonText,
+            quitButtonText,
+            timer
+        );
     } catch (error) {
         onError(error);
     }
 }
 
-function htmlModal(txt, title, language, graceIdleTime) {
+function getPageLanguage(pageUrl) {
+    const normalizedUrl = String(pageUrl).toLowerCase();
+
+    if (normalizedUrl.includes("nl-be")) {
+        return "nl";
+    }
+    if (normalizedUrl.includes("en-us")) {
+        return "en";
+    }
+    return "fr";
+}
+
+function htmlModal(txt, title, continueText, quitText, graceIdleTime) {
     console.log("HTMLContent function:", txt);
 
     // Grace period timer
@@ -335,29 +346,21 @@ function htmlModal(txt, title, language, graceIdleTime) {
         requestSessionReset();
     }, graceIdleTime);
 
-    if (language == "fr") {
-        var contButton = "Continuer";
-        var exitButton = "Quitter";
-    }
-
-    if (language == "nl") {
-        var contButton = "Doorgaan";
-        var exitButton = "Afsluiten";
-    }
-
-    if (language == "en") {
-        var contButton = "Continue";
-        var exitButton = "Exit";
-    }
-    // Créer les éléments DOM manuellement
-    //const lineBreak = document.createElement("br"); // Saut à la ligne
-
     const modal = document.createElement("div");
     modal.id = "modalJS";
     modal.className = "modal-timeout";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "titleInactivity");
+    modal.setAttribute("aria-describedby", "askingInactivity");
 
     const modalContent = document.createElement("div");
     modalContent.className = "modal-content-timeout";
+
+    const warningIcon = document.createElement("div");
+    warningIcon.className = "inactivity-warning-icon";
+    warningIcon.setAttribute("aria-hidden", "true");
+    warningIcon.textContent = "!";
 
     const modalTitle = document.createElement("h1");
     modalTitle.id = "titleInactivity";
@@ -368,24 +371,22 @@ function htmlModal(txt, title, language, graceIdleTime) {
     modalText.textContent = decodeHTML(txt);
 
     const buttonContainer = document.createElement("div");
-    buttonContainer.style.textAlign = "center";
-    buttonContainer.style.display = "flex"; // Utilisation de Flexbox
-    buttonContainer.style.justifyContent = "center"; // Centrer les boutons
-    buttonContainer.style.gap = "60px"; // Ajout d'un espace de 20px entre les boutons
+    buttonContainer.className = "inactivity-button-container";
     
     const continueButton = document.createElement("button");
     continueButton.id = "continuerTimeout";
-    continueButton.className = "buttonTimeOut";
-    continueButton.textContent = contButton;
+    continueButton.className = "buttonTimeOut button-timeout-continue";
+    continueButton.textContent = decodeHTML(continueText);
 
     const closeButton = document.createElement("button");
-    closeButton.className = "buttonTimeOut";
-    closeButton.textContent = exitButton;
+    closeButton.className = "buttonTimeOut button-timeout-quit";
+    closeButton.textContent = decodeHTML(quitText);
     closeButton.onclick = requestSessionReset;
 
     // Assembler les éléments
-    buttonContainer.appendChild(continueButton);
     buttonContainer.appendChild(closeButton);
+    buttonContainer.appendChild(continueButton);
+    modalContent.appendChild(warningIcon);
     modalContent.appendChild(modalTitle);
     modalContent.appendChild(modalText);
     modalContent.appendChild(buttonContainer);

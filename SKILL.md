@@ -29,8 +29,9 @@ Trace changes through the smallest relevant path:
 - Use one resolved configuration object in each content script for redirect
   matching, timeout values, and modal strings. Keep it synchronized with
   top-level local-storage changes made after an options save.
-- Language: the page's `iclangplug` query parameter -> stored `epnLang` ->
-  `titleFR`/`txtFR`, `titleNL`/`txtNL`, or `titleEN`/`txtEN` -> modal text.
+- Language: `fr-BE`, `nl-BE`, or `en-US` in the current page URL -> matching
+  `title`/`txt`/`btnContinue`/`btnQuit` keys with `FR`, `NL`, or `EN` suffix ->
+  modal content. Use French when no supported locale is present.
 - Site exception: evaluate the ordered itsme/FAS URL branches in
   `timeoutModal.js` before changing general timer startup.
 - Packaging or permissions: `manifest.json`, with corresponding user-facing
@@ -97,6 +98,9 @@ because they affect every normal website in the Firefox profile.
 - Insert configurable title and message values with `textContent`, never
   `innerHTML`; legacy stored strings may contain HTML entities and can be
   decoded before safe insertion.
+- Keep all six configurable button keys (`btnContinueFR`, `btnQuitFR`, and the
+  `NL`/`EN` equivalents) in defaults, validation, options, and the Managed
+  Storage example. Render **Quit** before **Continue** to match the kiosk design.
 - Remember that the content script matches all URLs. Avoid page-specific DOM
   assumptions outside the explicit exceptions, and avoid disturbing host-page
   event handlers when changing activity detection.

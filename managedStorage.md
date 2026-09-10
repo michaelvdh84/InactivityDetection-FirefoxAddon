@@ -43,12 +43,18 @@ Gecko déclaré dans `manifest.json` :
     "modalAfter": 60,
     "popupLife": 30,
     "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/",
-    "titleFR": "Inactivité détectée !",
-    "txtFR": "Voulez-vous maintenir la session ouverte ?",
-    "titleNL": "Inactiviteit gedetecteerd !",
-    "txtNL": "Wil je de sessie open houden?",
-    "titleEN": "Inactivity detected !",
-    "txtEN": "Do you want to keep the session open?",
+    "titleFR": "Inactivité détectée",
+    "txtFR": "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
+    "btnContinueFR": "Oui, continuer ma session",
+    "btnQuitFR": "Non, quitter",
+    "titleNL": "Inactiviteit gedetecteerd",
+    "txtNL": "U hebt de kiosk al enige tijd niet meer gebruikt.\nWilt u deze blijven gebruiken?",
+    "btnContinueNL": "Ja, mijn sessie voortzetten",
+    "btnQuitNL": "Nee, afsluiten",
+    "titleEN": "Inactivity detected",
+    "txtEN": "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
+    "btnContinueEN": "Yes, continue my session",
+    "btnQuitEN": "No, exit",
     "hostname": "BORNE-001",
     "ip": "10.20.30.101",
     "allowLocalOverrides": true
@@ -62,7 +68,9 @@ Toutes les propriétés présentées dans `data` sont obligatoires, sauf
 - `modalAfter` et `popupLife` sont des nombres strictement positifs exprimés en
   secondes ;
 - `redirectUrl` vaut `about:blank` ou une URL HTTP(S) absolue ;
-- les titres, textes, `hostname` et `ip` sont des chaînes ;
+- les titres, textes, libellés de boutons, `hostname` et `ip` sont des chaînes ;
+- chaque langue utilise quatre clés avec le suffixe `FR`, `NL` ou `EN` :
+  `title`, `txt`, `btnContinue` et `btnQuit` ;
 - `allowLocalOverrides: true` autorise **Validate** dans le panneau ;
 - `allowLocalOverrides: false` impose le JSON et désactive les champs éditables.
 
