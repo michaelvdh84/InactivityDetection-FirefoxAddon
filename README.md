@@ -16,6 +16,7 @@ profile.
   buttons in French, Belgian Dutch, and English;
 - language selection from `fr-BE`, `nl-BE`, or `en-US` in the current URL;
 - configurable redirect after each session reset;
+- Firefox Home button navigation to the current effective `redirectUrl`;
 - Dynamics Power Pages logout before local data cleanup;
 - removal of cookies, cache, site storage, history, form data, and download
   history without closing Firefox;
@@ -67,6 +68,10 @@ The effective configuration is resolved in this order:
 
 Managed Storage is read-only. The extension never modifies the administrator's
 JSON file. It stores user changes separately in local extension storage.
+
+The Firefox Home button opens the current effective `redirectUrl`. The extension
+resolves Managed Storage and allowed local overrides again on every click, so a
+configuration change does not require a new extension package.
 
 ### Configuration keys
 
@@ -229,10 +234,12 @@ For a manual test, use short timeout values and verify:
    remain available;
 8. Managed Storage, local override, and **Use managed values** precedence works
    as documented;
-9. on a production or integration `/fas/XUI/` page, the header, footer, video,
+9. the Firefox Home button opens the current effective `redirectUrl` after a
+   managed or local configuration change;
+10. on a production or integration `/fas/XUI/` page, the header, footer, video,
    and help link remain hidden after dynamic page updates while every required
    authentication method remains usable.
-10. on the IBZ PIN/PUK page, only the configured elements are hidden; turning
+11. on the IBZ PIN/PUK page, only the configured elements are hidden; turning
     off the global switch or disabling its rule restores them immediately, and
     the sibling `.../code-pin-extra` path does not match.
 
@@ -253,6 +260,7 @@ For a manual test, use short timeout values and verify:
 - `managed-storage/`: deployable Managed Storage example;
 - `managedStorage.md`: Windows Managed Storage deployment guide;
 - `reset.html`: neutral page used while browser data is cleared.
+- `home.html` and `home.js`: Firefox Home bridge to the effective `redirectUrl`.
 
 ## License
 

@@ -27,6 +27,10 @@
       "scripts": ["kioskRestrictionsCore.js", "background.js"]
     },
 
+    "chrome_settings_overrides": {
+      "homepage": "home.html"
+    },
+
     "action": {
       "default_icon":"icons/hibernation-48.png",
       "default_title":"Inactivity Options",
