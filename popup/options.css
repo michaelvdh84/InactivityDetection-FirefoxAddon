@@ -35,12 +35,14 @@
     width: 70%;
 }
 
+.options-form input:disabled,
 .options-machine input[readonly] {
     background: #f2f2f2;
+    color: #666;
 }
 
-#refreshManagedConfigBtn,
-#clearLocalOverridesBtn {
+#unlockConfigBtn,
+#useManagedValuesBtn {
     padding: 8px;
 }
 

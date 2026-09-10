@@ -26,6 +26,9 @@ Trace changes through the smallest relevant path:
 - At startup, synchronize the content script's start-page decision with the
   first managed-resolution attempt. A missing or invalid manifest falls back to
   the last local configuration without clearing it.
+- Use one resolved configuration object in each content script for redirect
+  matching, timeout values, and modal strings. Keep it synchronized with
+  top-level local-storage changes made after an options save.
 - Language: the page's `iclangplug` query parameter -> stored `epnLang` ->
   `titleFR`/`txtFR`, `titleNL`/`txtNL`, or `titleEN`/`txtEN` -> modal text.
 - Site exception: evaluate the ordered itsme/FAS URL branches in
@@ -40,8 +43,10 @@ background script.
 ## Preserve the timing contract
 
 Storage and the options UI express `modalAfter` and `popupLife` in seconds.
-Timer APIs use milliseconds. Keep that conversion explicit and keep fallback
-defaults synchronized between the options code and the content script.
+Timer APIs use milliseconds. Keep runtime defaults centralized in
+`background.js`; the popup may duplicate them only for degraded rendering.
+Do not add fallback timeout or modal strings to `timeoutModal.js`, where they
+would hide a failure to resolve Managed Storage.
 
 Any timer refactor must maintain these transitions:
 
@@ -112,6 +117,8 @@ because they affect every normal website in the Firefox profile.
   backward-compatible consumers.
 - Never write to `browser.storage.managed`. Save only editable form values in
   `browser.storage.local.localOverrides`; keep `hostname` and `ip` read-only.
+- Keep the options form read-only on open. Unlock explicitly before editing,
+  save through **Validate**, and clear overrides through **Use managed values**.
 - Update `managedStorage.md` and its deployable JSON when the schema, registry,
   precedence, or diagnostics change.
 

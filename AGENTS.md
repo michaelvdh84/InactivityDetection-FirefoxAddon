@@ -41,6 +41,9 @@ There is no automated test suite or generated output in the repository.
 - Managed configuration is read from `browser.storage.managed` when Firefox
   starts. Content scripts must await resolution before using `redirectUrl` to
   decide whether inactivity detection starts.
+- Content scripts keep the returned effective configuration in memory and use
+  that same object for timeout values and modal text. They listen for resolved
+  top-level local-storage changes so an options save updates an open page.
 - Managed configuration is atomic and allow-listed: validate every supported
   key before applying any of it. A missing or invalid manifest preserves the
   last valid local configuration.
@@ -51,8 +54,10 @@ There is no automated test suite or generated output in the repository.
 - `hostname` and `ip` are supplied by Managed Storage and remain read-only in
   the popup. Local overrides apply only to editable form settings.
 - `modalAfter` defaults to 60 seconds and `popupLife` defaults to 30 seconds.
-  Defaults also exist in `popup/options.js`; keep both locations consistent when
-  changing them.
+  Authoritative runtime defaults live in `background.js`; `popup/options.js`
+  duplicates them only to render a degraded popup when the background is
+  unavailable. Do not add independent timer or modal-text defaults back to
+  `timeoutModal.js`, because they can mask configuration propagation failures.
 - User activity resets the idle counter. Choosing **Continue** must remove the
   modal, cancel its grace-period timeout, and restart idle detection.
 - `redirectUrl` defaults to `about:blank` and accepts `about:blank` or an
@@ -88,7 +93,8 @@ There is no automated test suite or generated output in the repository.
 
 - Use plain JavaScript, DOM APIs, and Firefox's promise-based `browser.*` API.
 - Resolve Managed Storage and local overrides in `background.js`; content
-  scripts and the popup consume the validated effective configuration.
+  scripts and the popup consume the validated effective configuration. Do not
+  make modal text or timers independently reread stale top-level keys.
 - Never trust managed or local JSON merely because it is machine-controlled.
   Keep the explicit key allow-list, duration/text bounds, redirect protocol
   validation, and all-or-nothing managed application.
@@ -156,9 +162,10 @@ For behavior changes, load `manifest.json` as a temporary add-on from
 10. Any affected itsme/FAS exception still follows its documented branch.
 11. A valid Managed Storage manifest supplies every option plus `hostname` and
     `ip`; an absent or invalid manifest falls back to local values.
-12. With `allowLocalOverrides: true`, **Validate** overrides editable managed
-    values and **Restore managed values** removes those overrides. With `false`,
-    editable controls are locked.
+12. The options page initially shows disabled fields. With
+    `allowLocalOverrides: true`, **Unlock configuration** enables them,
+    **Validate** saves editable values to local overrides, and **Use managed
+    values** removes those overrides. With `false`, unlocking is disabled.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;

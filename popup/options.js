@@ -29,13 +29,14 @@ const editableFieldIds = [
 ];
 
 const validateButton = document.getElementById("extTimeoutOptionbtn");
-const refreshManagedButton = document.getElementById("refreshManagedConfigBtn");
-const clearOverridesButton = document.getElementById("clearLocalOverridesBtn");
+const unlockConfigButton = document.getElementById("unlockConfigBtn");
+const useManagedValuesButton = document.getElementById("useManagedValuesBtn");
 const managedConfigStatus = document.getElementById("managedConfigStatus");
+let currentConfigurationState = null;
 
 validateButton.addEventListener("click", saveLocalOverrides);
-refreshManagedButton.addEventListener("click", refreshManagedConfiguration);
-clearOverridesButton.addEventListener("click", clearLocalOverrides);
+unlockConfigButton.addEventListener("click", unlockConfiguration);
+useManagedValuesButton.addEventListener("click", useManagedValues);
 
 async function loadEffectiveConfiguration() {
     try {
@@ -61,6 +62,8 @@ async function loadEffectiveConfiguration() {
 }
 
 function renderConfiguration(result) {
+    currentConfigurationState = result;
+
     for (const [key, value] of Object.entries(result.config)) {
         const element = document.getElementById(key);
         if (element) {
@@ -68,24 +71,25 @@ function renderConfiguration(result) {
         }
     }
 
-    const editingLocked =
+    // Configuration always opens in read-only mode. Editing requires an
+    // explicit user action so merely opening the popup cannot create an
+    // accidental local override.
+    setEditableFieldsDisabled(true);
+    validateButton.disabled = true;
+    unlockConfigButton.disabled =
         result.managedAvailable && !result.allowLocalOverrides;
-    for (const fieldId of editableFieldIds) {
-        document.getElementById(fieldId).disabled = editingLocked;
-    }
-    validateButton.disabled = editingLocked;
-    clearOverridesButton.disabled = !result.localOverridesPresent;
+    useManagedValuesButton.disabled = !result.managedAvailable;
 
     if (result.managedAvailable) {
         managedConfigStatus.className = "status-success";
-        if (editingLocked) {
+        if (!result.allowLocalOverrides) {
             managedConfigStatus.textContent =
-                "Managed configuration loaded. Local changes are disabled.";
+                "Managed Configuration Loaded — local changes are disabled.";
         } else if (result.localOverridesActive) {
             managedConfigStatus.textContent =
-                "Managed configuration loaded with local overrides.";
+                "Managed Configuration Loaded — local override active.";
         } else {
-            managedConfigStatus.textContent = "Managed configuration loaded.";
+            managedConfigStatus.textContent = "Managed Configuration Loaded";
         }
     } else {
         managedConfigStatus.className = result.managedError ? "status-error" : "";
@@ -109,37 +113,41 @@ async function saveLocalOverrides() {
     }
 }
 
-async function refreshManagedConfiguration() {
-    setButtonsDisabled(true);
-    managedConfigStatus.className = "";
-    managedConfigStatus.textContent = "Reload in progress…";
-
-    try {
-        const result = await browser.runtime.sendMessage({
-            type: "refresh-managed-config"
-        });
-        renderConfiguration(result);
-    } catch (error) {
+function unlockConfiguration() {
+    if (
+        currentConfigurationState?.managedAvailable &&
+        !currentConfigurationState.allowLocalOverrides
+    ) {
         managedConfigStatus.className = "status-error";
-        managedConfigStatus.textContent = `Reload failed: ${error.message || error}`;
-    } finally {
-        refreshManagedButton.disabled = false;
+        managedConfigStatus.textContent =
+            "Managed Configuration Loaded — local changes are disabled.";
+        return;
     }
+
+    setEditableFieldsDisabled(false);
+    validateButton.disabled = false;
+    managedConfigStatus.className = "";
+    managedConfigStatus.textContent =
+        "Configuration unlocked. Validate to save a local override.";
 }
 
-async function clearLocalOverrides() {
+async function useManagedValues() {
     setButtonsDisabled(true);
 
     try {
+        // Managed storage itself is read-only. Removing localOverrides makes
+        // the background resolve and expose the managed values again.
         const result = await browser.runtime.sendMessage({
             type: "clear-local-overrides"
         });
         renderConfiguration(result);
     } catch (error) {
+        if (currentConfigurationState) {
+            renderConfiguration(currentConfigurationState);
+        }
         managedConfigStatus.className = "status-error";
-        managedConfigStatus.textContent = `Reset failed: ${error.message || error}`;
-    } finally {
-        refreshManagedButton.disabled = false;
+        managedConfigStatus.textContent =
+            `Unable to use managed values: ${error.message || error}`;
     }
 }
 
@@ -176,8 +184,14 @@ function readAndValidateForm() {
 
 function setButtonsDisabled(disabled) {
     validateButton.disabled = disabled;
-    refreshManagedButton.disabled = disabled;
-    clearOverridesButton.disabled = disabled;
+    unlockConfigButton.disabled = disabled;
+    useManagedValuesButton.disabled = disabled;
+}
+
+function setEditableFieldsDisabled(disabled) {
+    for (const fieldId of editableFieldIds) {
+        document.getElementById(fieldId).disabled = disabled;
+    }
 }
 
 function decodeHTML(value) {

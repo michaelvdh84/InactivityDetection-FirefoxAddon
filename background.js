@@ -1,6 +1,5 @@
 const RESET_SESSION_MESSAGE = "reset-session";
 const GET_EFFECTIVE_CONFIG_MESSAGE = "get-effective-config";
-const REFRESH_MANAGED_CONFIG_MESSAGE = "refresh-managed-config";
 const SAVE_LOCAL_OVERRIDES_MESSAGE = "save-local-overrides";
 const CLEAR_LOCAL_OVERRIDES_MESSAGE = "clear-local-overrides";
 const DEFAULT_REDIRECT_URL = "about:blank";
@@ -63,15 +62,7 @@ let startupManagedRefreshPromise = null;
 
 browser.runtime.onMessage.addListener((message, sender) => {
     if (message?.type === GET_EFFECTIVE_CONFIG_MESSAGE) {
-        return getStartupConfiguration();
-    }
-
-    if (message?.type === REFRESH_MANAGED_CONFIG_MESSAGE) {
-        // Firefox reloads a changed managed-storage manifest only after a
-        // browser restart. This action still reapplies the currently exposed
-        // managed values and is useful after editing local overrides.
-        startupManagedRefreshPromise = refreshEffectiveConfiguration();
-        return startupManagedRefreshPromise;
+        return getEffectiveConfiguration();
     }
 
     if (message?.type === SAVE_LOCAL_OVERRIDES_MESSAGE) {
@@ -113,10 +104,12 @@ function ensureStartupManagedRefresh() {
     return startupManagedRefreshPromise;
 }
 
-async function getStartupConfiguration() {
-    // Content scripts wait for this resolution before deciding whether the
-    // current document is the configured start page.
-    return ensureStartupManagedRefresh();
+async function getEffectiveConfiguration() {
+    // Resolve again for every new page or popup. This avoids retaining a
+    // startup fallback if Managed Storage became available after the first
+    // background wake-up (a common situation while debugging the extension).
+    startupManagedRefreshPromise = refreshEffectiveConfiguration();
+    return startupManagedRefreshPromise;
 }
 
 async function refreshEffectiveConfiguration() {

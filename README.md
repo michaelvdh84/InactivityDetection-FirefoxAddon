@@ -35,8 +35,9 @@ The EPN Inactivity Detection extension monitors activity in Firefox and displays
 For managed kiosks, the same values can come from a Firefox Managed Storage
 manifest generated before Firefox starts. A registry key associates that JSON
 file with the extension ID. If it is unavailable or invalid, the last local
-settings remain in use. When `allowLocalOverrides` is enabled, **Validate**
-saves a separate local override; **Restore managed values** removes it.
+settings remain in use. The panel initially displays the resolved values in
+read-only fields. **Unlock configuration** enables editing, **Validate** saves
+a separate local override, and **Use managed values** removes it.
 Installation and validation are documented in
 [managedStorage.md](managedStorage.md).
 

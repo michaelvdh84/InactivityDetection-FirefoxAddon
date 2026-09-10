@@ -9,20 +9,21 @@
     <div class="options-time">
         <div class="options-field">
             <label>Show popup after :</label>
-            <input type="number" access="false" id="modalAfter" min="1"> seconds
+            <input type="number" access="false" id="modalAfter" min="1" disabled> seconds
         </div>
         <div class="options-field">
             <label>Popup life:&nbsp;</label>
-            <input type="number" id="popupLife" min="1"> seconds
+            <input type="number" id="popupLife" min="1" disabled> seconds
         </div>
         <div class="options-field options-redirect">
             <label for="redirectUrl">Redirect URL:</label>
-            <input type="url" id="redirectUrl" placeholder="https://portal.example.com/">
+            <input type="url" id="redirectUrl" placeholder="https://portal.example.com/" disabled>
         </div>
     </div>
     <hr/>
     <div class="options-machine">
         <h2>Managed configuration</h2>
+        <p id="managedConfigStatus" role="status" aria-live="polite"></p>
         <div class="options-field">
             <label for="hostname">Hostname:</label>
             <input type="text" id="hostname" readonly>
@@ -31,9 +32,8 @@
             <label for="ip">IP:</label>
             <input type="text" id="ip" readonly>
         </div>
-        <button type="button" id="refreshManagedConfigBtn">Reload managed configuration</button>
-        <button type="button" id="clearLocalOverridesBtn">Restore managed values</button>
-        <p id="managedConfigStatus" role="status" aria-live="polite"></p>
+        <button type="button" id="unlockConfigBtn">Unlock configuration</button>
+        <button type="button" id="useManagedValuesBtn">Use managed values</button>
     </div>
     <hr/>
     <div class="options-text">
@@ -42,8 +42,8 @@
             <table>
                 <tr>
                     <td>
-                    <input type="text" access="false" id="titleFR" placeholder="Titre Fr"><br/><br/>
-                    <input type="textarea" access="false" id="txtFR" placeholder="Message de la fenetre modal">
+                    <input type="text" access="false" id="titleFR" placeholder="Titre Fr" disabled><br/><br/>
+                    <input type="textarea" access="false" id="txtFR" placeholder="Message de la fenetre modal" disabled>
                 </td>
                 </tr>
             </table>
@@ -54,8 +54,8 @@
             <table>
                 <tr>
                     <td>
-                    <input type="text" access="false" id="titleNL" placeholder="Titre Nl"><br/><br/>
-                    <input type="text" access="false" id="txtNL" placeholder="Message de la fenetre modal">
+                    <input type="text" access="false" id="titleNL" placeholder="Titre Nl" disabled><br/><br/>
+                    <input type="text" access="false" id="txtNL" placeholder="Message de la fenetre modal" disabled>
                 </td>
                 </tr>
             </table>        </div>
@@ -64,8 +64,8 @@
             <table>
                 <tr>
                     <td>
-                    <input type="text" access="false" id="titleEN" placeholder="Titre En"><br/><br/>
-                    <input type="text" access="false" id="txtEN" placeholder="Message de la fenetre modal">
+                    <input type="text" access="false" id="titleEN" placeholder="Titre En" disabled><br/><br/>
+                    <input type="text" access="false" id="txtEN" placeholder="Message de la fenetre modal" disabled>
                 </td>
                 </tr>
             </table>
@@ -73,7 +73,7 @@
     </div>
     <br>
     <div>
-        <button type="button" access="false" id="extTimeoutOptionbtn">Validate</button>
+        <button type="button" access="false" id="extTimeoutOptionbtn" disabled>Validate</button>
     </div>
 </div>
 <script src="options.js"></script>

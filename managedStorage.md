@@ -16,9 +16,10 @@ L’extension utilise les sources dans cet ordre :
 
 Les modifications locales sont enregistrées séparément dans
 `browser.storage.local.localOverrides`. Elles ne modifient jamais le manifeste
-administré. Le bouton **Restore managed values** les supprime. Si Managed Storage
-est absent ou invalide, les valeurs locales déjà enregistrées restent le
-fallback.
+administré. Les champs sont grisés à l’ouverture du panneau. **Unlock
+configuration** autorise leur édition, **Validate** sauvegarde l’override local
+et **Use managed values** le supprime. Si Managed Storage est absent ou invalide,
+les valeurs locales déjà enregistrées restent le fallback.
 
 ## 1. Préparer le manifeste JSON
 
@@ -112,9 +113,9 @@ partiellement généré. La clé de registre ne doit être créée qu’une fois
 être distribuée par GPO, Intune ou l’outil de provisioning.
 
 Firefox doit être complètement fermé puis relancé pour prendre en compte une
-modification du manifeste Managed Storage. Le bouton **Reload managed
-configuration** réapplique les valeurs déjà chargées par Firefox, mais ne force
-pas Firefox à relire un fichier modifié sur disque.
+modification du manifeste Managed Storage. **Use managed values** supprime les
+overrides locaux et réutilise les valeurs que Firefox a déjà chargées ; il ne
+force pas Firefox à relire un fichier modifié sur disque.
 
 ## 4. Valider dans Firefox
 
@@ -133,17 +134,27 @@ Les propriétés placées dans `data` doivent apparaître directement. Ouvrir
 ensuite le panneau : il indique si Managed Storage est chargé et si des
 modifications locales sont actives.
 
-Pour tester la priorité locale, laisser `allowLocalOverrides` à `true`, modifier
-une valeur et cliquer sur **Validate**. **Restore managed values** doit rétablir
-la valeur du JSON. Avec `allowLocalOverrides: false`, les champs doivent être
-verrouillés.
+Après avoir rechargé l’extension temporaire dans `about:debugging`, recharger
+aussi l’onglet du portail : Firefox ne réinjecte pas automatiquement la nouvelle
+version d’un content script dans les pages qui étaient déjà ouvertes.
+
+Pour tester la priorité locale, laisser `allowLocalOverrides` à `true`, cliquer
+sur **Unlock configuration**, modifier une valeur puis cliquer sur **Validate**.
+**Use managed values** doit rétablir la valeur du JSON. Avec
+`allowLocalOverrides: false`, le bouton de déverrouillage doit être désactivé.
 
 ## Diagnostic
 
 - **Managed configuration unavailable** : vérifier le chemin de la valeur par
   défaut dans le registre, l’identifiant exact et la syntaxe JSON.
 - **Une ancienne valeur reste affichée** : fermer tous les processus Firefox,
-  puis relancer le navigateur.
+  puis relancer le navigateur. Après un rechargement de l’extension temporaire,
+  recharger également l’onglet testé.
+- **Managed Storage contient les bonnes valeurs mais le formulaire ou la modale
+  affiche une modification précédente** : vérifier si le panneau indique que
+  des overrides locaux sont actifs, puis utiliser **Use managed values**.
+  On peut les inspecter dans la console avec
+  `browser.storage.local.get("localOverrides").then(console.log)`.
 - **Le JSON est trouvé mais refusé** : vérifier que toutes les propriétés de
   configuration sont présentes et du bon type.
 - **La mauvaise configuration est chargée** : contrôler les clés `HKCU`,
