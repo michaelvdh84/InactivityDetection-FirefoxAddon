@@ -23,6 +23,8 @@ const DEFAULT_CONFIGURATION = {
     txtEN: "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
     btnContinueEN: "Yes, continue my session",
     btnQuitEN: "No, exit",
+    kioskRestrictionsEnabled: true,
+    kioskRestrictions: InactivityKioskRestrictionsCore.DEFAULT_KIOSK_RESTRICTIONS,
     hostname: "",
     ip: ""
 };
@@ -59,10 +61,11 @@ const EDITABLE_CONFIG_KEYS = [
     "titleEN",
     "txtEN",
     "btnContinueEN",
-    "btnQuitEN"
+    "btnQuitEN",
+    "kioskRestrictionsEnabled"
 ];
 
-const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "hostname", "ip"];
+const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "kioskRestrictions", "hostname", "ip"];
 
 const WEB_DATA_TO_REMOVE = {
     cache: true,
@@ -229,6 +232,10 @@ async function clearLocalOverrides() {
 function validateCompleteConfiguration(source) {
     const config = {
         ...validateEditableConfiguration(source),
+        kioskRestrictions: InactivityKioskRestrictionsCore.validateKioskRestrictions(
+            source.kioskRestrictions,
+            (selector) => document.querySelector(selector)
+        ),
         hostname: requireString(source.hostname, "hostname", CONFIG_TEXT_LIMITS.hostname),
         ip: requireString(source.ip, "ip", CONFIG_TEXT_LIMITS.ip)
     };
@@ -244,7 +251,11 @@ function validateEditableConfiguration(source) {
     const config = {
         modalAfter: requirePositiveNumber(source.modalAfter, "modalAfter"),
         popupLife: requirePositiveNumber(source.popupLife, "popupLife"),
-        redirectUrl: requireRedirectUrl(source.redirectUrl)
+        redirectUrl: requireRedirectUrl(source.redirectUrl),
+        kioskRestrictionsEnabled: requireBoolean(
+            source.kioskRestrictionsEnabled,
+            "kioskRestrictionsEnabled"
+        )
     };
 
     for (const [key, maxLength] of Object.entries(CONFIG_TEXT_LIMITS)) {
@@ -278,7 +289,7 @@ function readStoredFallback(stored) {
         });
     } catch (error) {
         console.warn("Stored configuration is invalid; using defaults:", error);
-        return { ...DEFAULT_CONFIGURATION };
+        return validateCompleteConfiguration(DEFAULT_CONFIGURATION);
     }
 }
 
@@ -298,6 +309,13 @@ function requirePositiveNumber(value, key) {
         throw new Error(`Configuration key "${key}" must be a positive number.`);
     }
     return number;
+}
+
+function requireBoolean(value, key) {
+    if (typeof value !== "boolean") {
+        throw new Error(`Configuration key "${key}" must be a boolean.`);
+    }
+    return value;
 }
 
 function requireRedirectUrl(value) {
