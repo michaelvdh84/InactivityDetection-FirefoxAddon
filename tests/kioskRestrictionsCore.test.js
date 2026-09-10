@@ -28,6 +28,12 @@ test("matches FAS hosts case-insensitively and requires HTTPS", () => {
     assert.equal(core.matchesKioskRule({ ...rule, enabled: false }, "https://idp.iamfas.belgium.be/fas/XUI/"), false);
 });
 
+test("returns false for malformed page URLs", () => {
+    assert.equal(core.matchesKioskRule(validRule, "not a URL"), false);
+    assert.equal(core.matchesKioskRule(validRule, "https://"), false);
+    assert.equal(core.matchesKioskRule(validRule, "javascript:alert(1)"), false);
+});
+
 test("validates and normalizes rules", () => {
     const result = core.validateKioskRestrictions([{ ...validRule, hostnames: ["WWW.IBZ.RRN.FGOV.BE"], pathPrefixes: ["/foo///"] }], validateSelector);
     assert.deepEqual(result, [{ ...validRule, hostnames: ["www.ibz.rrn.fgov.be"], pathPrefixes: ["/foo"] }]);
@@ -56,4 +62,25 @@ test("rejects configured array and string size limits", () => {
     assert.throws(() => core.validateKioskRestrictions([{ ...validRule, hostnames: tooMany(11) }], validateSelector), /hostnames/);
     assert.throws(() => core.validateKioskRestrictions([{ ...validRule, pathPrefixes: Array(21).fill("/x") }], validateSelector), /pathPrefixes/);
     assert.throws(() => core.validateKioskRestrictions([{ ...validRule, selectors: Array(101).fill("div") }], validateSelector), /selectors/);
+});
+
+test("accepts each declared string limit and rejects the next character", () => {
+    const idAtLimit = "i".repeat(64);
+    assert.equal(core.validateKioskRestrictions([{ ...validRule, id: idAtLimit }], validateSelector)[0].id, idAtLimit);
+    assert.throws(() => core.validateKioskRestrictions([{ ...validRule, id: `${idAtLimit}x` }], validateSelector), /id/);
+
+    const label = "a".repeat(63);
+    const hostnameAtLimit = `${label}.${label}.${label}.${"a".repeat(61)}`;
+    assert.equal(hostnameAtLimit.length, 253);
+    assert.equal(core.validateKioskRestrictions([{ ...validRule, hostnames: [hostnameAtLimit] }], validateSelector)[0].hostnames[0], hostnameAtLimit);
+    assert.throws(() => core.validateKioskRestrictions([{ ...validRule, hostnames: [`${hostnameAtLimit}a`] }], validateSelector), /hostnames/);
+
+    const pathAtLimit = `/${"p".repeat(2047)}`;
+    assert.equal(pathAtLimit.length, 2048);
+    assert.equal(core.validateKioskRestrictions([{ ...validRule, pathPrefixes: [pathAtLimit] }], validateSelector)[0].pathPrefixes[0], pathAtLimit);
+    assert.throws(() => core.validateKioskRestrictions([{ ...validRule, pathPrefixes: [`${pathAtLimit}p`] }], validateSelector), /pathPrefixes/);
+
+    const selectorAtLimit = "x".repeat(512);
+    assert.equal(core.validateKioskRestrictions([{ ...validRule, selectors: [selectorAtLimit] }], validateSelector)[0].selectors[0], selectorAtLimit);
+    assert.throws(() => core.validateKioskRestrictions([{ ...validRule, selectors: [`${selectorAtLimit}x`] }], validateSelector), /selectors/);
 });
