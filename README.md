@@ -22,7 +22,9 @@ profile.
 - automatic disabling of inactivity detection on the configured start page;
 - centralized kiosk configuration through Firefox Managed Storage;
 - optional local overrides through the extension options panel;
-- existing itsme and FAS navigation exceptions.
+- existing itsme and FAS navigation exceptions;
+- kiosk-safe FAS login pages with their header, footer, help links, and video
+  content hidden without changing the authentication controls.
 
 ## How it works
 
@@ -153,7 +155,11 @@ The extension preserves the portal's authentication-flow exceptions:
 - on `itsme.be`, inactivity detection starts only when `#phoneForm` exists;
 - FAS OAuth authorization redirects do not start an inactivity timer;
 - the exact production and integration FAS `itsme/refused` pages immediately
-  request a session reset.
+  request a session reset;
+- production and integration pages below `/fas/XUI/` hide page headers,
+  footers, embedded video content, and French, Dutch, English, or German help
+  links. A DOM observer reapplies these restrictions to dynamically loaded FAS
+  content. This filtering does not apply to other websites or FAS paths.
 
 ## Installation for development
 
@@ -181,10 +187,12 @@ Firefox `browser_specific_settings` configuration.
 
 ## Validation
 
-There is no automated test suite or build step. Run the syntax and JSON checks
-from PowerShell:
+There is no build step or external test dependency. Run the Node behavior test,
+syntax checks, and JSON checks from PowerShell:
 
 ```powershell
+node --test tests/fasKioskUi.test.js
+node --check fasKioskUi.js
 node --check timeoutModal.js
 node --check popup/options.js
 node --check background.js
@@ -207,7 +215,10 @@ For a manual test, use short timeout values and verify:
 7. website cookies and storage are absent after reset while extension settings
    remain available;
 8. Managed Storage, local override, and **Use managed values** precedence works
-   as documented.
+   as documented;
+9. on a production or integration `/fas/XUI/` page, the header, footer, video,
+   and help link remain hidden after dynamic page updates while every required
+   authentication method remains usable.
 
 ## Project structure
 
@@ -217,6 +228,8 @@ For a manual test, use short timeout values and verify:
   coordination;
 - `timeoutModal.js`: activity tracking, URL-language selection, modal lifecycle,
   and site-specific exceptions;
+- `fasKioskUi.js`: strictly scoped FAS kiosk UI filtering and dynamic-content
+  observation;
 - `inactivityplugin.css`: responsive injected modal design;
 - `popup/`: options page and local-override workflow;
 - `managed-storage/`: deployable Managed Storage example;

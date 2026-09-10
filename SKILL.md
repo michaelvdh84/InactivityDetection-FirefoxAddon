@@ -34,11 +34,15 @@ Trace changes through the smallest relevant path:
   modal content. Use French when no supported locale is present.
 - Site exception: evaluate the ordered itsme/FAS URL branches in
   `timeoutModal.js` before changing general timer startup.
+- FAS kiosk UI: `manifest.json` -> `fasKioskUi.js` -> the shared hidden marker
+  in `inactivityplugin.css`. Keep this filter limited to the production and
+  integration `/fas/XUI/` pages.
 - Packaging or permissions: `manifest.json`, with corresponding user-facing
   documentation in `README.md` when behavior changes.
 
-Do not assume a bundler, dependency manifest, or automated test harness; none
-currently exists. Firefox runs `background.js` as a non-persistent Manifest V3
+Do not assume a bundler or dependency manifest. The FAS kiosk UI filter has a
+dependency-free Node behavior test; other flows rely on syntax, JSON, and manual
+Firefox checks. Firefox runs `background.js` as a non-persistent Manifest V3
 background script.
 
 ## Preserve the timing contract
@@ -135,15 +139,19 @@ Before editing URL matching, verify all three existing behaviors:
   detection during automatic redirection.
 - On the exact production and integration `/fasui/itsme/refused` URLs, reset the
   session immediately.
+- On production and integration `/fas/XUI/` pages, hide navigation chrome,
+  video, and multilingual help links without hiding authentication controls.
+  Keep observing DOM additions because FAS renders parts of its UI dynamically.
 
 Prefer URL parsing or narrowly scoped predicates when revising these rules, and
 do not broaden a close condition without an explicit requirement.
 
 ## Verify the result
 
-Always run JavaScript syntax checks, including `background.js`, and parse
-`manifest.json` plus the Managed Storage example. Use `web-ext lint`
-when it is already available. For logic changes, perform or clearly request the
+For FAS kiosk UI changes, run `node --test tests/fasKioskUi.test.js`. Always run
+JavaScript syntax checks, including `fasKioskUi.js` and `background.js`, and
+parse `manifest.json` plus the Managed Storage example. Use `web-ext lint` when
+it is already available. For logic changes, perform or clearly request the
 manual Firefox scenarios listed in `AGENTS.md`; report any scenario not run.
 
 Keep the patch focused. Update `README.md` for user-visible behavior or defaults,

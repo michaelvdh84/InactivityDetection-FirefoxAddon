@@ -19,6 +19,8 @@ step unless the task explicitly requires one.
   extension page, clears normal web data, and performs the final redirect.
 - `timeoutModal.js`: page activity listeners, idle counter, modal lifecycle,
   language selection, site-specific exceptions, and reset requests.
+- `fasKioskUi.js`: hides non-authentication navigation and media on FAS XUI
+  pages and reapplies those restrictions to dynamically inserted content.
 - `inactivityplugin.css`: styles for the modal injected by the content script.
 - `reset.html`: neutral page displayed while cleanup is running.
 - `popup/options.html`: toolbar configuration form.
@@ -32,7 +34,8 @@ step unless the task explicitly requires one.
 - `icons/`: packaged extension icons.
 - `README.md`: manual installation and user-facing behavior.
 
-There is no automated test suite or generated output in the repository.
+The repository has one dependency-free Node behavior test for the FAS kiosk UI
+filter and no generated output.
 
 ## Behavioral invariants
 
@@ -86,6 +89,10 @@ There is no automated test suite or generated output in the repository.
   detection on `itsme.be` starts only when `#phoneForm` exists; FAS authorization
   redirects do not start the timer; the exact FAS `itsme/refused` pages reset
   the session immediately.
+- FAS kiosk UI filtering applies only to the production and integration hosts
+  below `/fas/XUI/`. Keep authentication controls available while hiding the
+  header, footer, videos, and multilingual help links, including elements added
+  dynamically.
 - Modal selectors (`#modalJS`, `#titleInactivity`, `#askingInactivity`,
   `.modal-timeout`, `.modal-content-timeout`, `.inactivity-warning-icon`,
   `.inactivity-button-container`, and `.buttonTimeOut`) connect the JavaScript
@@ -135,6 +142,8 @@ There is no automated test suite or generated output in the repository.
 Run the checks that match the change:
 
 ```powershell
+node --test tests/fasKioskUi.test.js
+node --check fasKioskUi.js
 node --check timeoutModal.js
 node --check popup/options.js
 node --check background.js
@@ -171,6 +180,8 @@ For behavior changes, load `manifest.json` as a temporary add-on from
     values** removes those overrides. With `false`, unlocking is disabled.
 13. URLs containing `fr-BE`, `nl-BE`, and `en-US` display the configured title,
     message, quit label, and continue label for the matching language.
+14. On both FAS `/fas/XUI/` hosts, navigation chrome, help links, and video stay
+    hidden while the required authentication controls remain operable.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;
