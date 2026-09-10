@@ -20,6 +20,32 @@
     "btnQuitEN": "No, exit",
     "hostname": "BORNE-TEST",
     "ip": "192.0.2.10",
-    "allowLocalOverrides": true
+    "allowLocalOverrides": true,
+    "kioskRestrictionsEnabled": true,
+    "kioskRestrictions": [
+      {
+        "id": "fas-login",
+        "enabled": true,
+        "hostnames": ["idp.iamfas.belgium.be", "idp.iamfas.int.belgium.be"],
+        "pathPrefixes": ["/fas/XUI/"],
+        "selectors": [
+          "header", "#header", ".header", ".navbar", ".csam-header",
+          "[role='banner']", "footer", "#footer", ".footer",
+          ".csam-footer-container", ".csam-footer-content-container",
+          "[role='contentinfo']", "video", ".video-preview-btn",
+          "iframe[src*='youtube.com' i]", "iframe[src*='youtube-nocookie.com' i]",
+          "iframe[src*='youtu.be' i]", "iframe[src*='vimeo.com' i]",
+          "a[href*='sma-help.bosa.belgium.be' i]", "[id*='video' i]",
+          "[class*='video' i]"
+        ]
+      },
+      {
+        "id": "ibz-pin-puk",
+        "enabled": true,
+        "hostnames": ["www.ibz.rrn.fgov.be"],
+        "pathPrefixes": ["/fr/citoyen/documents-didentite/eid/demande-dun-code-pin"],
+        "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
+      }
+    ]
   }
 }

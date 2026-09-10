@@ -19,8 +19,10 @@ step unless the task explicitly requires one.
   extension page, clears normal web data, and performs the final redirect.
 - `timeoutModal.js`: page activity listeners, idle counter, modal lifecycle,
   language selection, site-specific exceptions, and reset requests.
-- `fasKioskUi.js`: hides non-authentication navigation and media on FAS XUI
-  pages and reapplies those restrictions to dynamically inserted content.
+- `kioskRestrictionsCore.js`: validates Managed Storage kiosk rules, supplies
+  FAS/IBZ defaults, and matches exact HTTPS hosts and path boundaries.
+- `kioskUiRestrictions.js`: applies matching managed selectors and restores
+  immediately when the global switch or a matching rule becomes disabled.
 - `inactivityplugin.css`: styles for the modal injected by the content script.
 - `reset.html`: neutral page displayed while cleanup is running.
 - `popup/options.html`: toolbar configuration form.
@@ -34,8 +36,8 @@ step unless the task explicitly requires one.
 - `icons/`: packaged extension icons.
 - `README.md`: manual installation and user-facing behavior.
 
-The repository has one dependency-free Node behavior test for the FAS kiosk UI
-filter and no generated output.
+The repository has dependency-free Node behavior tests for managed kiosk-rule
+validation and matching, and no generated output.
 
 ## Behavioral invariants
 
@@ -89,10 +91,14 @@ filter and no generated output.
   detection on `itsme.be` starts only when `#phoneForm` exists; FAS authorization
   redirects do not start the timer; the exact FAS `itsme/refused` pages reset
   the session immediately.
-- FAS kiosk UI filtering applies only to the production and integration hosts
-  below `/fas/XUI/`. Keep authentication controls available while hiding the
-  header, footer, videos, and multilingual help links, including elements added
-  dynamically.
+- Kiosk UI restrictions are managed-only. The global
+  `kioskRestrictionsEnabled` switch may be locally overridden when allowed, but
+  `kioskRestrictions` rules and selectors may never be locally edited or
+  overridden. Disabled rules, an off global switch, or a no-longer-matching URL
+  must restore every extension-hidden element immediately.
+- Rules use exact HTTPS host matching and normalized path-prefix boundaries;
+  retain the narrow default FAS and IBZ rules, avoid hiding authentication
+  controls, and reapply matching restrictions to dynamically inserted elements.
 - Modal selectors (`#modalJS`, `#titleInactivity`, `#askingInactivity`,
   `.modal-timeout`, `.modal-content-timeout`, `.inactivity-warning-icon`,
   `.inactivity-button-container`, and `.buttonTimeOut`) connect the JavaScript
@@ -132,7 +138,8 @@ filter and no generated output.
 - Keep storage key names backward compatible unless migration is part of the
   task: `modalAfter`, `popupLife`, `titleFR`, `txtFR`, `titleNL`, `txtNL`,
   `titleEN`, `txtEN`, `btnContinueFR`, `btnQuitFR`, `btnContinueNL`,
-  `btnQuitNL`, `btnContinueEN`, `btnQuitEN`, `epnLang`, and `redirectUrl`.
+  `btnQuitNL`, `btnContinueEN`, `btnQuitEN`, `epnLang`, `redirectUrl`, and
+  `kioskRestrictionsEnabled`.
 - If user-visible behavior, defaults, installation, or cleanup scope changes,
   update `README.md`. Bump the version in `manifest.json` only when the
   requested release workflow calls for it.
@@ -142,8 +149,9 @@ filter and no generated output.
 Run the checks that match the change:
 
 ```powershell
-node --test tests/fasKioskUi.test.js
-node --check fasKioskUi.js
+node --test tests/kioskRestrictionsCore.test.js
+node --check kioskRestrictionsCore.js
+node --check kioskUiRestrictions.js
 node --check timeoutModal.js
 node --check popup/options.js
 node --check background.js
@@ -180,8 +188,12 @@ For behavior changes, load `manifest.json` as a temporary add-on from
     values** removes those overrides. With `false`, unlocking is disabled.
 13. URLs containing `fr-BE`, `nl-BE`, and `en-US` display the configured title,
     message, quit label, and continue label for the matching language.
-14. On both FAS `/fas/XUI/` hosts, navigation chrome, help links, and video stay
-    hidden while the required authentication controls remain operable.
+14. On both FAS `/fas/XUI/` hosts, matching configured selectors stay hidden
+    while required authentication controls remain operable; newly inserted
+    matching elements also hide.
+15. On the IBZ PIN/PUK page, only configured selectors hide. Toggle the global
+    switch or disable its managed rule and verify immediate restoration; verify a
+    sibling path such as `.../code-pin-extra` does not match.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;

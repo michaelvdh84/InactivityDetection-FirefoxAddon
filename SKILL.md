@@ -1,6 +1,6 @@
 ---
 name: maintain-firefox-inactivity-extension
-description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension, including timers, session cleanup, redirects, Firefox Managed Storage, local configuration overrides, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
+description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension, including timers, session cleanup, redirects, Firefox Managed Storage, local configuration overrides, managed kiosk UI restrictions, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
 ---
 
 # Maintain the Firefox inactivity extension
@@ -34,16 +34,17 @@ Trace changes through the smallest relevant path:
   modal content. Use French when no supported locale is present.
 - Site exception: evaluate the ordered itsme/FAS URL branches in
   `timeoutModal.js` before changing general timer startup.
-- FAS kiosk UI: `manifest.json` -> `fasKioskUi.js` -> the shared hidden marker
-  in `inactivityplugin.css`. Keep this filter limited to the production and
-  integration `/fas/XUI/` pages.
+- Kiosk UI restrictions: `manifest.json` -> `kioskRestrictionsCore.js` ->
+  `kioskUiRestrictions.js` -> the shared hidden marker in
+  `inactivityplugin.css`. Rules arrive from Managed Storage and apply only on
+  exact HTTPS hosts and path-prefix boundaries.
 - Packaging or permissions: `manifest.json`, with corresponding user-facing
   documentation in `README.md` when behavior changes.
 
-Do not assume a bundler or dependency manifest. The FAS kiosk UI filter has a
-dependency-free Node behavior test; other flows rely on syntax, JSON, and manual
-Firefox checks. Firefox runs `background.js` as a non-persistent Manifest V3
-background script.
+Do not assume a bundler or dependency manifest. Managed kiosk-rule validation
+and matching have dependency-free Node behavior tests; other flows rely on
+syntax, JSON, and manual Firefox checks. Firefox runs `background.js` as a
+non-persistent Manifest V3 background script.
 
 ## Preserve the timing contract
 
@@ -125,6 +126,9 @@ because they affect every normal website in the Firefox profile.
   backward-compatible consumers.
 - Never write to `browser.storage.managed`. Save only editable form values in
   `browser.storage.local.localOverrides`; keep `hostname` and `ip` read-only.
+- Keep `kioskRestrictions` managed-only. Local overrides may include only the
+  global `kioskRestrictionsEnabled` switch when allowed; never let the popup or
+  local storage create, modify, or override an individual rule or selector.
 - Keep the options form read-only on open. Unlock explicitly before editing,
   save through **Validate**, and clear overrides through **Use managed values**.
 - Update `managedStorage.md` and its deployable JSON when the schema, registry,
@@ -139,20 +143,22 @@ Before editing URL matching, verify all three existing behaviors:
   detection during automatic redirection.
 - On the exact production and integration `/fasui/itsme/refused` URLs, reset the
   session immediately.
-- On production and integration `/fas/XUI/` pages, hide navigation chrome,
-  video, and multilingual help links without hiding authentication controls.
-  Keep observing DOM additions because FAS renders parts of its UI dynamically.
+- Verify the managed FAS rule on production and integration `/fas/XUI/` pages
+  and the managed IBZ PIN/PUK rule on its exact path. Keep observing DOM
+  additions and restore extension-hidden elements immediately when a matching
+  rule becomes disabled, the global switch turns off, or URL matching ends.
 
 Prefer URL parsing or narrowly scoped predicates when revising these rules, and
 do not broaden a close condition without an explicit requirement.
 
 ## Verify the result
 
-For FAS kiosk UI changes, run `node --test tests/fasKioskUi.test.js`. Always run
-JavaScript syntax checks, including `fasKioskUi.js` and `background.js`, and
-parse `manifest.json` plus the Managed Storage example. Use `web-ext lint` when
-it is already available. For logic changes, perform or clearly request the
-manual Firefox scenarios listed in `AGENTS.md`; report any scenario not run.
+For managed kiosk-rule changes, run `node --test tests/kioskRestrictionsCore.test.js`.
+Always run JavaScript syntax checks, including `kioskRestrictionsCore.js`,
+`kioskUiRestrictions.js`, and `background.js`, and parse `manifest.json` plus
+the Managed Storage example. Use `web-ext lint` when it is already available.
+For logic changes, perform or clearly request the manual Firefox scenarios
+listed in `AGENTS.md`; report any scenario not run.
 
 Keep the patch focused. Update `README.md` for user-visible behavior or defaults,
 and change the manifest version only as part of an explicit release task.

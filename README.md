@@ -23,8 +23,8 @@ profile.
 - centralized kiosk configuration through Firefox Managed Storage;
 - optional local overrides through the extension options panel;
 - existing itsme and FAS navigation exceptions;
-- kiosk-safe FAS login pages with their header, footer, help links, and video
-  content hidden without changing the authentication controls.
+- centrally managed, selector-based kiosk UI restrictions for narrowly scoped
+  FAS and IBZ pages, including matching dynamically inserted elements.
 
 ## How it works
 
@@ -86,6 +86,8 @@ JSON file. It stores user changes separately in local extension storage.
 | `hostname` | string | machine metadata supplied by Managed Storage; read-only in options |
 | `ip` | string | machine metadata supplied by Managed Storage; read-only in options |
 | `allowLocalOverrides` | boolean | managed-only flag; defaults to `true` |
+| `kioskRestrictionsEnabled` | boolean | global Managed Storage switch; defaults to `true` |
+| `kioskRestrictions` | array of rule objects | Managed Storage-only site UI rules; see [Managed Storage setup](managedStorage.md#règles-de-restriction-dinterface-kiosque) |
 
 Managed configuration is applied atomically: every required value must be
 present and valid. Unknown keys are ignored. An absent or invalid managed
@@ -101,6 +103,10 @@ Configuration Loaded** and initially keeps the fields disabled.
 - **Validate** validates the form and saves a local override.
 - **Use managed values** removes the local override and displays the managed
   values already loaded by Firefox.
+
+The global kiosk-restrictions checkbox is editable only when local overrides
+are allowed. Individual rules and selectors remain Managed Storage-only, so a
+kiosk user cannot create, weaken, or broaden a page restriction from the popup.
 
 Changing the managed JSON on disk requires a complete Firefox restart. **Use
 managed values** does not force Firefox to reread the file.
@@ -148,7 +154,7 @@ session. The Dynamics logout step addresses the portal session. Signing out of
 Microsoft Entra ID or another external identity provider also depends on the
 portal's External logout configuration.
 
-## itsme and FAS exceptions
+## itsme and managed kiosk restrictions
 
 The extension preserves the portal's authentication-flow exceptions:
 
@@ -156,10 +162,16 @@ The extension preserves the portal's authentication-flow exceptions:
 - FAS OAuth authorization redirects do not start an inactivity timer;
 - the exact production and integration FAS `itsme/refused` pages immediately
   request a session reset;
-- production and integration pages below `/fas/XUI/` hide page headers,
-  footers, embedded video content, and French, Dutch, English, or German help
-  links. A DOM observer reapplies these restrictions to dynamically loaded FAS
-  content. This filtering does not apply to other websites or FAS paths.
+- the default managed `fas-login` rule hides selected navigation, footer, video,
+  and help elements only on the two exact FAS hosts below `/fas/XUI/`;
+- the default managed `ibz-pin-puk` rule hides selected page chrome only on the
+  exact IBZ PIN/PUK path. Matching elements restore immediately when its rule
+  is disabled, the global switch is off, or the URL no longer matches;
+- rules use exact hostnames and path-prefix boundaries: `/a/b` matches `/a/b`
+  and `/a/b/child`, but not `/a/b-extra`.
+
+These are presentation restrictions, not browser security controls: hiding an
+element does not block its URL, network request, or browser navigation.
 
 ## Installation for development
 
@@ -191,8 +203,9 @@ There is no build step or external test dependency. Run the Node behavior test,
 syntax checks, and JSON checks from PowerShell:
 
 ```powershell
-node --test tests/fasKioskUi.test.js
-node --check fasKioskUi.js
+node --test tests/kioskRestrictionsCore.test.js
+node --check kioskRestrictionsCore.js
+node --check kioskUiRestrictions.js
 node --check timeoutModal.js
 node --check popup/options.js
 node --check background.js
@@ -219,6 +232,9 @@ For a manual test, use short timeout values and verify:
 9. on a production or integration `/fas/XUI/` page, the header, footer, video,
    and help link remain hidden after dynamic page updates while every required
    authentication method remains usable.
+10. on the IBZ PIN/PUK page, only the configured elements are hidden; turning
+    off the global switch or disabling its rule restores them immediately, and
+    the sibling `.../code-pin-extra` path does not match.
 
 ## Project structure
 
@@ -228,8 +244,10 @@ For a manual test, use short timeout values and verify:
   coordination;
 - `timeoutModal.js`: activity tracking, URL-language selection, modal lifecycle,
   and site-specific exceptions;
-- `fasKioskUi.js`: strictly scoped FAS kiosk UI filtering and dynamic-content
-  observation;
+- `kioskRestrictionsCore.js`: Managed Storage rule validation, defaults, and
+  exact-host/path-boundary matching;
+- `kioskUiRestrictions.js`: selector restriction application, dynamic-content
+  observation, and immediate restoration;
 - `inactivityplugin.css`: responsive injected modal design;
 - `popup/`: options page and local-override workflow;
 - `managed-storage/`: deployable Managed Storage example;

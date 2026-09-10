@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 let core = {};
@@ -13,6 +15,13 @@ const validRule = {
     selectors: ["header.header"]
 };
 const validateSelector = (selector) => { if (selector === "[invalid") throw new Error("invalid"); };
+
+test("the deployable managed-storage example validates its default rule IDs", () => {
+    const manifestPath = path.join(__dirname, "..", "managed-storage", "michael.vanderhoudelinghen@i-city.brucity.be.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    const rules = core.validateKioskRestrictions(manifest.data.kioskRestrictions, validateSelector);
+    assert.deepEqual(rules.map((rule) => rule.id), ["fas-login", "ibz-pin-puk"]);
+});
 
 test("matches an exact host and a bounded path prefix", () => {
     assert.equal(typeof core.matchesKioskRule, "function");
