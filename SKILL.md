@@ -22,6 +22,9 @@ Trace changes through the smallest relevant path:
 - Managed settings: `native-host/config.json` -> framed host response ->
   `runtime.sendNativeMessage()` in `background.js` -> validated atomic write to
   `browser.storage.local` -> popup and content-script consumers.
+- At startup, synchronize the content script's start-page decision with the
+  first native import attempt. A missing host or config falls back to the last
+  values saved by the options UI without clearing or replacing them.
 - Language: the page's `iclangplug` query parameter -> stored `epnLang` ->
   `titleFR`/`txtFR`, `titleNL`/`txtNL`, or `titleEN`/`txtEN` -> modal text.
 - Site exception: evaluate the ordered itsme/FAS URL branches in

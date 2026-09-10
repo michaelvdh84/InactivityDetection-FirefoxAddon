@@ -33,9 +33,11 @@ The EPN Inactivity Detection extension monitors activity in Firefox and displays
 3. Save your settings by clicking the **Validate** button.
 
 For managed kiosks, the same values can come from the Native Messaging host's
-`config.json`. Click **Import config.json**, or let the extension import it
-automatically when Firefox starts. Installation and validation are documented
-in [nativemessaging.md](nativemessaging.md).
+`config.json`. At Firefox startup, the extension attempts this import before
+starting inactivity detection. If the host or file is unavailable or invalid,
+the values last saved from `options.html` remain in use. Click **Import
+config.json** to trigger a new attempt at any time. Installation and validation
+are documented in [nativemessaging.md](nativemessaging.md).
 
 The redirect URL must use `http://` or `https://`; `about:blank` is also accepted as a safe fallback.
 

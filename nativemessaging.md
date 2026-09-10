@@ -10,6 +10,13 @@ nom Windows de la borne (`hostname`) et sa première adresse IPv4 non locale
 (`ip`), puis renvoie le tout à l’extension. L’import a lieu à l’installation de
 l’extension, au démarrage de Firefox et à la demande depuis son panneau.
 
+Au démarrage, le détecteur attend la fin de cette tentative avant de décider si
+la page courante est la page d’accueil configurée. Si l’hôte n’est pas installé,
+si `config.json` n’existe pas ou si son contenu est invalide, aucune valeur
+n’est écrasée : les derniers paramètres enregistrés depuis `options.html`
+restent actifs. Le bouton **Import config.json** permet de relancer manuellement
+la tentative après une correction ou un déploiement.
+
 ## 1. Préparer les fichiers de l’hôte
 
 Créer un dossier local, par exemple :

@@ -1,5 +1,6 @@
 const RESET_SESSION_MESSAGE = "reset-session";
 const REFRESH_NATIVE_CONFIG_MESSAGE = "refresh-native-config";
+const GET_STARTUP_CONFIG_MESSAGE = "get-startup-config";
 const NATIVE_HOST_NAME = "be.brucity.inactivity_detection";
 const DEFAULT_REDIRECT_URL = "about:blank";
 const RESET_PAGE_URL = browser.runtime.getURL("reset.html");
@@ -27,10 +28,15 @@ const WEB_DATA_TO_REMOVE = {
 };
 
 const resetsInProgress = new Set();
+let startupNativeImportPromise = null;
 
 browser.runtime.onMessage.addListener((message, sender) => {
     if (message?.type === REFRESH_NATIVE_CONFIG_MESSAGE) {
         return importNativeConfiguration();
+    }
+
+    if (message?.type === GET_STARTUP_CONFIG_MESSAGE) {
+        return getStartupConfiguration();
     }
 
     if (message?.type !== RESET_SESSION_MESSAGE) {
@@ -49,12 +55,27 @@ browser.runtime.onMessage.addListener((message, sender) => {
 });
 
 browser.runtime.onInstalled.addListener(() => {
-    importNativeConfiguration().catch(logNativeImportError);
+    ensureStartupNativeImport();
 });
 
 browser.runtime.onStartup.addListener(() => {
-    importNativeConfiguration().catch(logNativeImportError);
+    ensureStartupNativeImport();
 });
+
+function ensureStartupNativeImport() {
+    if (!startupNativeImportPromise) {
+        startupNativeImportPromise = importNativeConfiguration();
+    }
+
+    return startupNativeImportPromise;
+}
+
+async function getStartupConfiguration() {
+    // Wait before deciding whether the first loaded page is the start page.
+    // A failed native import leaves the manually saved values untouched.
+    await ensureStartupNativeImport();
+    return browser.storage.local.get("redirectUrl");
+}
 
 async function importNativeConfiguration() {
     try {

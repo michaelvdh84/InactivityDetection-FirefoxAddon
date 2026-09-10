@@ -40,6 +40,9 @@ There is no automated test suite or generated output in the repository.
   for `setInterval` and `setTimeout`.
 - Native configuration uses host name `be.brucity.inactivity_detection`. It is
   imported on extension installation, Firefox startup, or manual popup request.
+- Content scripts must await the startup native-import attempt before using
+  `redirectUrl` to decide whether inactivity detection starts. If it fails,
+  continue with the value already saved in extension storage.
 - Native imports must be atomic and allow-listed: validate every supported key
   before writing any of them. A missing host or invalid response preserves the
   last valid configuration.
