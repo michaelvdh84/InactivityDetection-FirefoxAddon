@@ -19,6 +19,14 @@
             <label for="redirectUrl">Redirect URL:</label>
             <input type="url" id="redirectUrl" placeholder="https://portal.example.com/" disabled>
         </div>
+        <div class="options-field options-toggle">
+            <label for="kioskRestrictionsEnabled">Kiosk UI restrictions:</label>
+            <input type="checkbox" id="kioskRestrictionsEnabled" disabled>
+        </div>
+        <div class="options-field options-kiosk-rules">
+            <h2>Configured kiosk restriction rules</h2>
+            <ul id="kioskRestrictionsSummary" aria-label="Configured kiosk restriction rules"></ul>
+        </div>
     </div>
     <hr/>
     <div class="options-machine">

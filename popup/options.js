@@ -18,6 +18,7 @@ const defaultParameters = {
     txtEN: "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
     btnContinueEN: "Yes, continue my session",
     btnQuitEN: "No, exit",
+    kioskRestrictionsEnabled: true,
     hostname: "",
     ip: ""
 };
@@ -26,6 +27,7 @@ const editableFieldIds = [
     "modalAfter",
     "popupLife",
     "redirectUrl",
+    "kioskRestrictionsEnabled",
     "titleFR",
     "txtFR",
     "btnContinueFR",
@@ -44,6 +46,7 @@ const validateButton = document.getElementById("extTimeoutOptionbtn");
 const unlockConfigButton = document.getElementById("unlockConfigBtn");
 const useManagedValuesButton = document.getElementById("useManagedValuesBtn");
 const managedConfigStatus = document.getElementById("managedConfigStatus");
+const kioskRestrictionsSummary = document.getElementById("kioskRestrictionsSummary");
 let currentConfigurationState = null;
 
 validateButton.addEventListener("click", saveLocalOverrides);
@@ -79,9 +82,14 @@ function renderConfiguration(result) {
     for (const [key, value] of Object.entries(result.config)) {
         const element = document.getElementById(key);
         if (element) {
-            element.value = decodeHTML(String(value));
+            if (key === "kioskRestrictionsEnabled") {
+                element.checked = Boolean(value);
+            } else if (key !== "kioskRestrictions") {
+                element.value = decodeHTML(String(value));
+            }
         }
     }
+    renderKioskRestrictionsSummary(result.config.kioskRestrictions);
 
     // Configuration always opens in read-only mode. Editing requires an
     // explicit user action so merely opening the popup cannot create an
@@ -196,8 +204,22 @@ function readAndValidateForm() {
         titleEN: document.getElementById("titleEN").value,
         txtEN: document.getElementById("txtEN").value,
         btnContinueEN: document.getElementById("btnContinueEN").value,
-        btnQuitEN: document.getElementById("btnQuitEN").value
+        btnQuitEN: document.getElementById("btnQuitEN").value,
+        kioskRestrictionsEnabled: document.getElementById("kioskRestrictionsEnabled").checked
     };
+}
+
+function renderKioskRestrictionsSummary(rules) {
+    kioskRestrictionsSummary.replaceChildren();
+
+    for (const rule of Array.isArray(rules) ? rules : []) {
+        const item = document.createElement("li");
+        const state = rule.enabled ? "enabled" : "disabled";
+        const hostnames = Array.isArray(rule.hostnames) ? rule.hostnames.join(", ") : "";
+        const pathPrefixes = Array.isArray(rule.pathPrefixes) ? rule.pathPrefixes.join(", ") : "";
+        item.textContent = `${rule.id} (${state}) — Hosts: ${hostnames}; Paths: ${pathPrefixes}`;
+        kioskRestrictionsSummary.appendChild(item);
+    }
 }
 
 function setButtonsDisabled(disabled) {
