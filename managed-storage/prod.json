@@ -1,0 +1,65 @@
+{
+  "name": "michael.vanderhoudelinghen@i-city.brucity.be",
+  "description": "Managed configuration for the Brucity inactivity extension",
+  "type": "storage",
+  "data": {
+    "modalAfter": 19,
+    "popupLife": 20,
+    "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/",
+    "titleFR": "Inactivité détectée",
+    "txtFR": "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
+    "btnContinueFR": "Oui, continuer ma session",
+    "btnQuitFR": "Non, quitter",
+    "titleNL": "Inactiviteit gedetecteerd",
+    "txtNL": "U hebt de kiosk al enige tijd niet meer gebruikt.\nWilt u deze blijven gebruiken?",
+    "btnContinueNL": "Ja, mijn sessie voortzetten",
+    "btnQuitNL": "Nee, afsluiten",
+    "titleEN": "Inactivity detected",
+    "txtEN": "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
+    "btnContinueEN": "Yes, continue my session",
+    "btnQuitEN": "No, exit",
+    "hostname": "BORNE-TEST",
+    "ip": "192.0.2.10",
+    "allowLocalOverrides": true,
+    "kioskRestrictionsEnabled": true,
+    "kioskRestrictions": [
+      {
+        "id": "fas-login",
+        "enabled": true,
+        "hostnames": ["idp.iamfas.belgium.be", "idp.iamfas.int.belgium.be"],
+        "pathPrefixes": ["/fas/XUI/"],
+        "selectors": [
+          "header", "#header", ".header", ".navbar", ".csam-header",
+          "[role='banner']", "footer", "#footer", ".footer",
+          ".csam-footer-container", ".csam-footer-content-container",
+          "[role='contentinfo']", "video", ".video-preview-btn",
+          "iframe[src*='youtube.com' i]", "iframe[src*='youtube-nocookie.com' i]",
+          "iframe[src*='youtu.be' i]", "iframe[src*='vimeo.com' i]",
+          "a[href*='sma-help.bosa.belgium.be' i]", "[id*='video' i]",
+          "[class*='video' i]"
+        ]
+      },
+      {
+        "id": "ibz-pin-puk-fr",
+        "enabled": true,
+        "hostnames": ["www.ibz.rrn.fgov.be"],
+        "pathPrefixes": ["/fr/citoyen/documents-didentite/eid/demande-dun-code-pin"],
+        "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
+      },
+      {
+        "id": "ibz-pin-puk-nl",
+        "enabled": true,
+        "hostnames": ["www.ibz.rrn.fgov.be"],
+        "pathPrefixes": ["/nl/burger/identiteitsdocumenten/eid/aanvraag-pincode"],
+        "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
+      },
+      {
+        "id": "ibz-pin-puk-de",
+        "enabled": true,
+        "hostnames": ["www.ibz.rrn.fgov.be"],
+        "pathPrefixes": ["/de/buerger/identitaetsdokumente/eid/beantragung-pin-code"],
+        "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
+      }
+    ]
+  }
+}
