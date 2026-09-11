@@ -1,6 +1,6 @@
 ---
 name: maintain-firefox-inactivity-extension
-description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension, including timers, session cleanup, redirects, Firefox Managed Storage, local configuration overrides, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
+description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension, including timers, session cleanup, redirects, Firefox Managed Storage, local configuration overrides, managed kiosk UI restrictions, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
 ---
 
 # Maintain the Firefox inactivity extension
@@ -26,22 +26,33 @@ Trace changes through the smallest relevant path:
 - At startup, synchronize the content script's start-page decision with the
   first managed-resolution attempt. A missing or invalid manifest falls back to
   the last local configuration without clearing it.
-- Language: the page's `iclangplug` query parameter -> stored `epnLang` ->
-  `titleFR`/`txtFR`, `titleNL`/`txtNL`, or `titleEN`/`txtEN` -> modal text.
+- Use one resolved configuration object in each content script for redirect
+  matching, timeout values, and modal strings. Keep it synchronized with
+  top-level local-storage changes made after an options save.
+- Language: `fr-BE`, `nl-BE`, or `en-US` in the current page URL -> matching
+  `title`/`txt`/`btnContinue`/`btnQuit` keys with `FR`, `NL`, or `EN` suffix ->
+  modal content. Use French when no supported locale is present.
 - Site exception: evaluate the ordered itsme/FAS URL branches in
   `timeoutModal.js` before changing general timer startup.
+- Kiosk UI restrictions: `manifest.json` -> `kioskRestrictionsCore.js` ->
+  `kioskUiRestrictions.js` -> the shared hidden marker in
+  `inactivityplugin.css`. Rules arrive from Managed Storage and apply only on
+  exact HTTPS hosts and path-prefix boundaries.
 - Packaging or permissions: `manifest.json`, with corresponding user-facing
   documentation in `README.md` when behavior changes.
 
-Do not assume a bundler, dependency manifest, or automated test harness; none
-currently exists. Firefox runs `background.js` as a non-persistent Manifest V3
-background script.
+Do not assume a bundler or dependency manifest. Managed kiosk-rule validation
+and matching have dependency-free Node behavior tests; other flows rely on
+syntax, JSON, and manual Firefox checks. Firefox runs `background.js` as a
+non-persistent Manifest V3 background script.
 
 ## Preserve the timing contract
 
 Storage and the options UI express `modalAfter` and `popupLife` in seconds.
-Timer APIs use milliseconds. Keep that conversion explicit and keep fallback
-defaults synchronized between the options code and the content script.
+Timer APIs use milliseconds. Keep runtime defaults centralized in
+`background.js`; the popup may duplicate them only for degraded rendering.
+Do not add fallback timeout or modal strings to `timeoutModal.js`, where they
+would hide a failure to resolve Managed Storage.
 
 Any timer refactor must maintain these transitions:
 
@@ -92,6 +103,9 @@ because they affect every normal website in the Firefox profile.
 - Insert configurable title and message values with `textContent`, never
   `innerHTML`; legacy stored strings may contain HTML entities and can be
   decoded before safe insertion.
+- Keep all six configurable button keys (`btnContinueFR`, `btnQuitFR`, and the
+  `NL`/`EN` equivalents) in defaults, validation, options, and the Managed
+  Storage example. Render **Quit** before **Continue** to match the kiosk design.
 - Remember that the content script matches all URLs. Avoid page-specific DOM
   assumptions outside the explicit exceptions, and avoid disturbing host-page
   event handlers when changing activity detection.
@@ -112,6 +126,11 @@ because they affect every normal website in the Firefox profile.
   backward-compatible consumers.
 - Never write to `browser.storage.managed`. Save only editable form values in
   `browser.storage.local.localOverrides`; keep `hostname` and `ip` read-only.
+- Keep `kioskRestrictions` managed-only. Local overrides may include only the
+  global `kioskRestrictionsEnabled` switch when allowed; never let the popup or
+  local storage create, modify, or override an individual rule or selector.
+- Keep the options form read-only on open. Unlock explicitly before editing,
+  save through **Validate**, and clear overrides through **Use managed values**.
 - Update `managedStorage.md` and its deployable JSON when the schema, registry,
   precedence, or diagnostics change.
 
@@ -124,16 +143,22 @@ Before editing URL matching, verify all three existing behaviors:
   detection during automatic redirection.
 - On the exact production and integration `/fasui/itsme/refused` URLs, reset the
   session immediately.
+- Verify the managed FAS rule on production and integration `/fas/XUI/` pages
+  and the managed IBZ PIN/PUK rule on its exact path. Keep observing DOM
+  additions and restore extension-hidden elements immediately when a matching
+  rule becomes disabled, the global switch turns off, or URL matching ends.
 
 Prefer URL parsing or narrowly scoped predicates when revising these rules, and
 do not broaden a close condition without an explicit requirement.
 
 ## Verify the result
 
-Always run JavaScript syntax checks, including `background.js`, and parse
-`manifest.json` plus the Managed Storage example. Use `web-ext lint`
-when it is already available. For logic changes, perform or clearly request the
-manual Firefox scenarios listed in `AGENTS.md`; report any scenario not run.
+For managed kiosk-rule changes, run `node --test tests/kioskRestrictionsCore.test.js`.
+Always run JavaScript syntax checks, including `kioskRestrictionsCore.js`,
+`kioskUiRestrictions.js`, and `background.js`, and parse `manifest.json` plus
+the Managed Storage example. Use `web-ext lint` when it is already available.
+For logic changes, perform or clearly request the manual Firefox scenarios
+listed in `AGENTS.md`; report any scenario not run.
 
 Keep the patch focused. Update `README.md` for user-visible behavior or defaults,
 and change the manifest version only as part of an explicit release task.

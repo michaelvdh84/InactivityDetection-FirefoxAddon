@@ -1,6 +1,7 @@
 let timer, currSeconds = 0;
 let sessionResetRequested = false;
 let activityDetectionEnabled = false;
+let effectiveConfiguration = null;
 
 const activityEvents = [
     "mousemove",
@@ -22,7 +23,7 @@ function resetTimer() {
     currSeconds = 0;
     /* Set a new interval */
     timer = setInterval(function () {
-        browser.storage.local.get("modalAfter").then(showModal, onError);
+        showModal(effectiveConfiguration);
     }, 1000);
 }
 
@@ -48,7 +49,7 @@ function startIdleTimer(allowedIdleTime) {
     if (currSeconds == allowedIdleTime ) {      
         console.log("Idle Time need to show modal");
         // SHOW MODAL WINDOW
-        browser.storage.local.get("popupLife").then(popupLife, onError);
+        popupLife(effectiveConfiguration);
     }
 }
 
@@ -94,7 +95,9 @@ if (currentUrl.includes(urlContains)) {
     console.log("It's Me Site !");
     var phoneForm = document.getElementById('phoneForm');
     if (phoneForm != null) {
-        enableActivityDetection();
+        loadEffectiveConfiguration().then(enableActivityDetection, (error) => {
+            onError(error);
+        });
     }
 
 } else if ((currentUrl.includes("https://idp.iamfas.belgium.be/fas/oauth2/authorize")) || (currentUrl.includes("https://idp.iamfas.int.belgium.be/fas/oauth2/authorize"))) {
@@ -110,45 +113,92 @@ else if ((currentUrl == "https://idp.iamfas.int.belgium.be/fasui/itsme/refused")
     requestSessionReset();
 }
 else {
-    getStartupRedirectUrl().then((redirectUrl) => {
-        if (isConfiguredStartPage(currentUrl, redirectUrl)) {
+    loadEffectiveConfiguration().then((config) => {
+        if (isConfiguredStartPage(currentUrl, config.redirectUrl)) {
             console.log("Start page detected, inactivity timer disabled.");
         } else {
             enableActivityDetection();
         }
     }, (error) => {
         onError(error);
-        enableActivityDetection();
     });
 }
 
-async function getStartupRedirectUrl() {
+async function loadEffectiveConfiguration() {
     try {
         const result = await browser.runtime.sendMessage({
             type: "get-effective-config"
         });
-        return result.config.redirectUrl;
+        if (!result?.ok || !isCompleteConfiguration(result.config)) {
+            throw new Error("The background returned an incomplete configuration.");
+        }
+
+        effectiveConfiguration = result.config;
+        return effectiveConfiguration;
     } catch (error) {
-        // Keep the manually saved configuration usable if the background
-        // context cannot answer during browser startup.
+        // Keep the last resolved local values usable if the background context
+        // cannot answer during browser startup.
         onError(error);
-        const { redirectUrl } = await browser.storage.local.get("redirectUrl");
-        return redirectUrl;
+        const storedConfiguration = await browser.storage.local.get(null);
+        if (!isCompleteConfiguration(storedConfiguration)) {
+            throw new Error("No complete inactivity configuration is available.");
+        }
+        effectiveConfiguration = storedConfiguration;
+        return effectiveConfiguration;
     }
 }
 
+function isCompleteConfiguration(config) {
+    const requiredTextKeys = [
+        "redirectUrl",
+        "titleFR",
+        "txtFR",
+        "btnContinueFR",
+        "btnQuitFR",
+        "titleNL",
+        "txtNL",
+        "btnContinueNL",
+        "btnQuitNL",
+        "titleEN",
+        "txtEN",
+        "btnContinueEN",
+        "btnQuitEN"
+    ];
+
+    return Boolean(
+        config &&
+        Number.isFinite(Number(config.modalAfter)) &&
+        Number(config.modalAfter) > 0 &&
+        Number.isFinite(Number(config.popupLife)) &&
+        Number(config.popupLife) > 0 &&
+        requiredTextKeys.every((key) => typeof config[key] === "string")
+    );
+}
+
+// Options-page saves are resolved by the background into these top-level local
+// keys. Reflect them in already loaded pages without restarting their timer.
+browser.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !effectiveConfiguration) {
+        return;
+    }
+
+    for (const [key, change] of Object.entries(changes)) {
+        if (key in effectiveConfiguration && change.newValue !== undefined) {
+            effectiveConfiguration[key] = change.newValue;
+        }
+    }
+});
+
 //Promise
 function showModal(item) {
-    const modalAfter = item.modalAfter ?? 60; // Default to 60 seconds
-    const showModalAfter = modalAfter * 1000; // Convert to milliseconds
+    const showModalAfter = item.modalAfter * 1000; // Convert to milliseconds
     console.log("ShowModal After : " + showModalAfter);
     startIdleTimer(showModalAfter);
 }
 
 // //Promise
 function popupLife(item) {
-    const popupLife = item.popupLife ?? 30; // Default to 60 seconds
-    var showPopupLife = popupLife * 1000;
+    var showPopupLife = item.popupLife * 1000;
     console.log("Popup Life : " + showPopupLife)
      //console.log("Popup Life : " + popupLife)
      getModalParameters(showPopupLife);
@@ -248,51 +298,46 @@ function getPortalLogoutUrl() {
 
 async function getModalParameters(timer) {
     try {
-        const { epnLang } = await browser.storage.local.get("epnLang");
-        console.log("Debug valueEpnLang:", epnLang);
-
-        let languageKey = "txtFR"; // Default language is French
-        let languageTitleKey = "titleFR"; // Default title is French
-        let language = "fr"; // Default language is French
-        //add default value if no value
-        let defaultModalTitle = "Inactivit&eacute; d&eacute;tect&eacute;e !";
-        let defaultMessage = "Voulez-vous maintenir la session ouverte ?";
-
-        if (epnLang) {
-            if (epnLang.includes("nl")) {
-                languageKey = "txtNL";
-                languageTitleKey = "titleNL";
-                language = "nl";
-                defaultMessage = "Wil je de sessie open houden ?";
-                defaultModalTitle = "Inactiviteit gedetecteerd !";
-            } else if (epnLang.includes("en")) {
-                languageKey = "txtEN";
-                languageTitleKey = "titleEN";
-                language = "en";
-                defaultMessage = "Do you want to keep the session open?";
-                defaultModalTitle = "Inactivity detected !";
-            } else if (epnLang.includes("fr")) {
-                languageKey = "txtFR";
-                languageTitleKey = "titleFR";
-                language = "fr";
-                defaultModalTitle = "Inactivit&eacute; d&eacute;tect&eacute;e !";
-                defaultMessage = "Voulez-vous maintenir la session ouverte ?";
-            }
-        }
-        const textData = await browser.storage.local.get(languageKey);
-        const titleData = await browser.storage.local.get(languageTitleKey);
-        const modalText = textData[languageKey] ?? defaultMessage;
-        const modalTitle = titleData[languageTitleKey] ?? defaultModalTitle;
+        const language = getPageLanguage(currentUrl);
+        const suffix = language.toUpperCase();
+        const languageKey = `txt${suffix}`;
+        const languageTitleKey = `title${suffix}`;
+        const continueButtonKey = `btnContinue${suffix}`;
+        const quitButtonKey = `btnQuit${suffix}`;
+        // Read the texts from the same resolved object as the timers. This
+        // prevents a managed delay from being mixed with stale local labels.
+        const modalText = effectiveConfiguration[languageKey];
+        const modalTitle = effectiveConfiguration[languageTitleKey];
+        const continueButtonText = effectiveConfiguration[continueButtonKey];
+        const quitButtonText = effectiveConfiguration[quitButtonKey];
         console.log(`Show modal in ${languageKey}:`, modalText);
 
         // Call the appropriate function to display the modal
-        htmlModal(modalText, modalTitle, language, timer);
+        htmlModal(
+            modalText,
+            modalTitle,
+            continueButtonText,
+            quitButtonText,
+            timer
+        );
     } catch (error) {
         onError(error);
     }
 }
 
-function htmlModal(txt, title, language, graceIdleTime) {
+function getPageLanguage(pageUrl) {
+    const normalizedUrl = String(pageUrl).toLowerCase();
+
+    if (normalizedUrl.includes("nl-be")) {
+        return "nl";
+    }
+    if (normalizedUrl.includes("en-us")) {
+        return "en";
+    }
+    return "fr";
+}
+
+function htmlModal(txt, title, continueText, quitText, graceIdleTime) {
     console.log("HTMLContent function:", txt);
 
     // Grace period timer
@@ -301,29 +346,21 @@ function htmlModal(txt, title, language, graceIdleTime) {
         requestSessionReset();
     }, graceIdleTime);
 
-    if (language == "fr") {
-        var contButton = "Continuer";
-        var exitButton = "Quitter";
-    }
-
-    if (language == "nl") {
-        var contButton = "Doorgaan";
-        var exitButton = "Afsluiten";
-    }
-
-    if (language == "en") {
-        var contButton = "Continue";
-        var exitButton = "Exit";
-    }
-    // Créer les éléments DOM manuellement
-    //const lineBreak = document.createElement("br"); // Saut à la ligne
-
     const modal = document.createElement("div");
     modal.id = "modalJS";
     modal.className = "modal-timeout";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "titleInactivity");
+    modal.setAttribute("aria-describedby", "askingInactivity");
 
     const modalContent = document.createElement("div");
     modalContent.className = "modal-content-timeout";
+
+    const warningIcon = document.createElement("div");
+    warningIcon.className = "inactivity-warning-icon";
+    warningIcon.setAttribute("aria-hidden", "true");
+    warningIcon.textContent = "!";
 
     const modalTitle = document.createElement("h1");
     modalTitle.id = "titleInactivity";
@@ -334,24 +371,22 @@ function htmlModal(txt, title, language, graceIdleTime) {
     modalText.textContent = decodeHTML(txt);
 
     const buttonContainer = document.createElement("div");
-    buttonContainer.style.textAlign = "center";
-    buttonContainer.style.display = "flex"; // Utilisation de Flexbox
-    buttonContainer.style.justifyContent = "center"; // Centrer les boutons
-    buttonContainer.style.gap = "60px"; // Ajout d'un espace de 20px entre les boutons
+    buttonContainer.className = "inactivity-button-container";
     
     const continueButton = document.createElement("button");
     continueButton.id = "continuerTimeout";
-    continueButton.className = "buttonTimeOut";
-    continueButton.textContent = contButton;
+    continueButton.className = "buttonTimeOut button-timeout-continue";
+    continueButton.textContent = decodeHTML(continueText);
 
     const closeButton = document.createElement("button");
-    closeButton.className = "buttonTimeOut";
-    closeButton.textContent = exitButton;
+    closeButton.className = "buttonTimeOut button-timeout-quit";
+    closeButton.textContent = decodeHTML(quitText);
     closeButton.onclick = requestSessionReset;
 
     // Assembler les éléments
-    buttonContainer.appendChild(continueButton);
     buttonContainer.appendChild(closeButton);
+    buttonContainer.appendChild(continueButton);
+    modalContent.appendChild(warningIcon);
     modalContent.appendChild(modalTitle);
     modalContent.appendChild(modalText);
     modalContent.appendChild(buttonContainer);

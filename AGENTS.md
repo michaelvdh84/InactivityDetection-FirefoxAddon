@@ -19,6 +19,10 @@ step unless the task explicitly requires one.
   extension page, clears normal web data, and performs the final redirect.
 - `timeoutModal.js`: page activity listeners, idle counter, modal lifecycle,
   language selection, site-specific exceptions, and reset requests.
+- `kioskRestrictionsCore.js`: validates Managed Storage kiosk rules, supplies
+  FAS/IBZ defaults, and matches exact HTTPS hosts and path boundaries.
+- `kioskUiRestrictions.js`: applies matching managed selectors and restores
+  immediately when the global switch or a matching rule becomes disabled.
 - `inactivityplugin.css`: styles for the modal injected by the content script.
 - `reset.html`: neutral page displayed while cleanup is running.
 - `popup/options.html`: toolbar configuration form.
@@ -32,7 +36,8 @@ step unless the task explicitly requires one.
 - `icons/`: packaged extension icons.
 - `README.md`: manual installation and user-facing behavior.
 
-There is no automated test suite or generated output in the repository.
+The repository has dependency-free Node behavior tests for managed kiosk-rule
+validation and matching, and no generated output.
 
 ## Behavioral invariants
 
@@ -41,6 +46,9 @@ There is no automated test suite or generated output in the repository.
 - Managed configuration is read from `browser.storage.managed` when Firefox
   starts. Content scripts must await resolution before using `redirectUrl` to
   decide whether inactivity detection starts.
+- Content scripts keep the returned effective configuration in memory and use
+  that same object for timeout values and modal text. They listen for resolved
+  top-level local-storage changes so an options save updates an open page.
 - Managed configuration is atomic and allow-listed: validate every supported
   key before applying any of it. A missing or invalid manifest preserves the
   last valid local configuration.
@@ -51,8 +59,10 @@ There is no automated test suite or generated output in the repository.
 - `hostname` and `ip` are supplied by Managed Storage and remain read-only in
   the popup. Local overrides apply only to editable form settings.
 - `modalAfter` defaults to 60 seconds and `popupLife` defaults to 30 seconds.
-  Defaults also exist in `popup/options.js`; keep both locations consistent when
-  changing them.
+  Authoritative runtime defaults live in `background.js`; `popup/options.js`
+  duplicates them only to render a degraded popup when the background is
+  unavailable. Do not add independent timer or modal-text defaults back to
+  `timeoutModal.js`, because they can mask configuration propagation failures.
 - User activity resets the idle counter. Choosing **Continue** must remove the
   modal, cancel its grace-period timeout, and restart idle detection.
 - `redirectUrl` defaults to `about:blank` and accepts `about:blank` or an
@@ -73,22 +83,33 @@ There is no automated test suite or generated output in the repository.
   not redirect to the portal before cleanup finishes.
 - Cleanup intentionally preserves the extension's `browser.storage.local`
   values and does not remove saved passwords or downloaded files.
-- The `iclangplug` URL parameter is stored as `epnLang`. Values containing `fr`,
-  `nl`, or `en` select the corresponding title, message, and button labels;
-  French is the fallback.
+- Select modal language from the current URL: `fr-BE` selects French, `nl-BE`
+  selects Belgian Dutch, and `en-US` selects English. French is the fallback.
+  The legacy `iclangplug` value may remain stored as `epnLang`, but modal
+  rendering must use the locale in the current URL.
 - Preserve the itsme/FAS exceptions unless a task explicitly changes them:
   detection on `itsme.be` starts only when `#phoneForm` exists; FAS authorization
   redirects do not start the timer; the exact FAS `itsme/refused` pages reset
   the session immediately.
+- Kiosk UI restrictions are managed-only. The global
+  `kioskRestrictionsEnabled` switch may be locally overridden when allowed, but
+  `kioskRestrictions` rules and selectors may never be locally edited or
+  overridden. Disabled rules, an off global switch, or a no-longer-matching URL
+  must restore every extension-hidden element immediately.
+- Rules use exact HTTPS host matching and normalized path-prefix boundaries;
+  retain the narrow default FAS and IBZ rules, avoid hiding authentication
+  controls, and reapply matching restrictions to dynamically inserted elements.
 - Modal selectors (`#modalJS`, `#titleInactivity`, `#askingInactivity`,
-  `.modal-timeout`, `.modal-content-timeout`, and `.buttonTimeOut`) connect the
-  JavaScript and CSS. Update both files if a selector changes.
+  `.modal-timeout`, `.modal-content-timeout`, `.inactivity-warning-icon`,
+  `.inactivity-button-container`, and `.buttonTimeOut`) connect the JavaScript
+  and CSS. Update both files if a selector changes.
 
 ## Implementation guidance
 
 - Use plain JavaScript, DOM APIs, and Firefox's promise-based `browser.*` API.
 - Resolve Managed Storage and local overrides in `background.js`; content
-  scripts and the popup consume the validated effective configuration.
+  scripts and the popup consume the validated effective configuration. Do not
+  make modal text or timers independently reread stale top-level keys.
 - Never trust managed or local JSON merely because it is machine-controlled.
   Keep the explicit key allow-list, duration/text bounds, redirect protocol
   validation, and all-or-nothing managed application.
@@ -116,7 +137,9 @@ There is no automated test suite or generated output in the repository.
   runtime stylesheet injection path.
 - Keep storage key names backward compatible unless migration is part of the
   task: `modalAfter`, `popupLife`, `titleFR`, `txtFR`, `titleNL`, `txtNL`,
-  `titleEN`, `txtEN`, `epnLang`, and `redirectUrl`.
+  `titleEN`, `txtEN`, `btnContinueFR`, `btnQuitFR`, `btnContinueNL`,
+  `btnQuitNL`, `btnContinueEN`, `btnQuitEN`, `epnLang`, `redirectUrl`, and
+  `kioskRestrictionsEnabled`.
 - If user-visible behavior, defaults, installation, or cleanup scope changes,
   update `README.md`. Bump the version in `manifest.json` only when the
   requested release workflow calls for it.
@@ -126,6 +149,9 @@ There is no automated test suite or generated output in the repository.
 Run the checks that match the change:
 
 ```powershell
+node --test tests/kioskRestrictionsCore.test.js
+node --check kioskRestrictionsCore.js
+node --check kioskUiRestrictions.js
 node --check timeoutModal.js
 node --check popup/options.js
 node --check background.js
@@ -156,9 +182,18 @@ For behavior changes, load `manifest.json` as a temporary add-on from
 10. Any affected itsme/FAS exception still follows its documented branch.
 11. A valid Managed Storage manifest supplies every option plus `hostname` and
     `ip`; an absent or invalid manifest falls back to local values.
-12. With `allowLocalOverrides: true`, **Validate** overrides editable managed
-    values and **Restore managed values** removes those overrides. With `false`,
-    editable controls are locked.
+12. The options page initially shows disabled fields. With
+    `allowLocalOverrides: true`, **Unlock configuration** enables them,
+    **Validate** saves editable values to local overrides, and **Use managed
+    values** removes those overrides. With `false`, unlocking is disabled.
+13. URLs containing `fr-BE`, `nl-BE`, and `en-US` display the configured title,
+    message, quit label, and continue label for the matching language.
+14. On both FAS `/fas/XUI/` hosts, matching configured selectors stay hidden
+    while required authentication controls remain operable; newly inserted
+    matching elements also hide.
+15. On the IBZ PIN/PUK page, only configured selectors hide. Toggle the global
+    switch or disable its managed rule and verify immediate restoration; verify a
+    sibling path such as `.../code-pin-extra` does not match.
 
 Report manual checks that could not be performed. Also report whether Dynamics
 Power Pages signs out only its local session or the external identity provider;

@@ -3,8 +3,8 @@
   "description": "Managed configuration for the Brucity inactivity extension",
   "type": "storage",
   "data": {
-    "modalAfter": 60,
-    "popupLife": 30,
+    "modalAfter": 19,
+    "popupLife": 20,
     "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/",
     "titleFR": "Inactivité détectée",
     "txtFR": "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
@@ -40,10 +40,24 @@
         ]
       },
       {
-        "id": "ibz-pin-puk",
+        "id": "ibz-pin-puk-fr",
         "enabled": true,
         "hostnames": ["www.ibz.rrn.fgov.be"],
         "pathPrefixes": ["/fr/citoyen/documents-didentite/eid/demande-dun-code-pin"],
+        "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
+      },
+      {
+        "id": "ibz-pin-puk-nl",
+        "enabled": true,
+        "hostnames": ["www.ibz.rrn.fgov.be"],
+        "pathPrefixes": ["/nl/burger/identiteitsdocumenten/eid/aanvraag-pincode"],
+        "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
+      },
+      {
+        "id": "ibz-pin-puk-de",
+        "enabled": true,
+        "hostnames": ["www.ibz.rrn.fgov.be"],
+        "pathPrefixes": ["/de/buerger/identitaetsdokumente/eid/beantragung-pin-code"],
         "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
       }
     ]

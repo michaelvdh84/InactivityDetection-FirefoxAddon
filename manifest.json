@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Inactivity Detection",
-    "version": "2.5.3",
+    "version": "2.6.0",
     "description": "Check inactivity, clear browsing data, and redirect after a certain time.",
     "icons": {
       "48": "icons/hibernation-48.png",
@@ -24,7 +24,11 @@
     ],
 
     "background": {
-      "scripts": ["background.js"]
+      "scripts": ["kioskRestrictionsCore.js", "background.js"]
+    },
+
+    "chrome_settings_overrides": {
+      "homepage": "home.html"
     },
 
     "action": {
@@ -36,7 +40,7 @@
     "content_scripts": [
       {
       "matches": ["<all_urls>"],
-      "js": ["timeoutModal.js"],
+      "js": ["kioskRestrictionsCore.js", "kioskUiRestrictions.js", "timeoutModal.js"],
       "css":["inactivityplugin.css"]
       }
     ]

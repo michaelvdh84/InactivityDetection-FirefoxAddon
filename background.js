@@ -1,6 +1,5 @@
 const RESET_SESSION_MESSAGE = "reset-session";
 const GET_EFFECTIVE_CONFIG_MESSAGE = "get-effective-config";
-const REFRESH_MANAGED_CONFIG_MESSAGE = "refresh-managed-config";
 const SAVE_LOCAL_OVERRIDES_MESSAGE = "save-local-overrides";
 const CLEAR_LOCAL_OVERRIDES_MESSAGE = "clear-local-overrides";
 const DEFAULT_REDIRECT_URL = "about:blank";
@@ -12,12 +11,20 @@ const DEFAULT_CONFIGURATION = {
     modalAfter: 60,
     popupLife: 30,
     redirectUrl: DEFAULT_REDIRECT_URL,
-    titleFR: "Inactivit&eacute; d&eacute;tect&eacute;e !",
-    txtFR: "Voulez-vous maintenir la session ouverte?",
-    titleNL: "Inactiviteit gedetecteerd !",
-    txtNL: "Wil je de sessie open houden?",
-    titleEN: "Inactivity detected !",
-    txtEN: "Do you want to keep the session open?",
+    titleFR: "Inactivité détectée",
+    txtFR: "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
+    btnContinueFR: "Oui, continuer ma session",
+    btnQuitFR: "Non, quitter",
+    titleNL: "Inactiviteit gedetecteerd",
+    txtNL: "U hebt de kiosk al enige tijd niet meer gebruikt.\nWilt u deze blijven gebruiken?",
+    btnContinueNL: "Ja, mijn sessie voortzetten",
+    btnQuitNL: "Nee, afsluiten",
+    titleEN: "Inactivity detected",
+    txtEN: "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
+    btnContinueEN: "Yes, continue my session",
+    btnQuitEN: "No, exit",
+    kioskRestrictionsEnabled: true,
+    kioskRestrictions: InactivityKioskRestrictionsCore.DEFAULT_KIOSK_RESTRICTIONS,
     hostname: "",
     ip: ""
 };
@@ -25,10 +32,16 @@ const DEFAULT_CONFIGURATION = {
 const CONFIG_TEXT_LIMITS = {
     titleFR: 500,
     txtFR: 2000,
+    btnContinueFR: 200,
+    btnQuitFR: 200,
     titleNL: 500,
     txtNL: 2000,
+    btnContinueNL: 200,
+    btnQuitNL: 200,
     titleEN: 500,
     txtEN: 2000,
+    btnContinueEN: 200,
+    btnQuitEN: 200,
     hostname: 255,
     ip: 255
 };
@@ -39,13 +52,20 @@ const EDITABLE_CONFIG_KEYS = [
     "redirectUrl",
     "titleFR",
     "txtFR",
+    "btnContinueFR",
+    "btnQuitFR",
     "titleNL",
     "txtNL",
+    "btnContinueNL",
+    "btnQuitNL",
     "titleEN",
-    "txtEN"
+    "txtEN",
+    "btnContinueEN",
+    "btnQuitEN",
+    "kioskRestrictionsEnabled"
 ];
 
-const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "hostname", "ip"];
+const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "kioskRestrictions", "hostname", "ip"];
 
 const WEB_DATA_TO_REMOVE = {
     cache: true,
@@ -63,15 +83,7 @@ let startupManagedRefreshPromise = null;
 
 browser.runtime.onMessage.addListener((message, sender) => {
     if (message?.type === GET_EFFECTIVE_CONFIG_MESSAGE) {
-        return getStartupConfiguration();
-    }
-
-    if (message?.type === REFRESH_MANAGED_CONFIG_MESSAGE) {
-        // Firefox reloads a changed managed-storage manifest only after a
-        // browser restart. This action still reapplies the currently exposed
-        // managed values and is useful after editing local overrides.
-        startupManagedRefreshPromise = refreshEffectiveConfiguration();
-        return startupManagedRefreshPromise;
+        return getEffectiveConfiguration();
     }
 
     if (message?.type === SAVE_LOCAL_OVERRIDES_MESSAGE) {
@@ -113,10 +125,12 @@ function ensureStartupManagedRefresh() {
     return startupManagedRefreshPromise;
 }
 
-async function getStartupConfiguration() {
-    // Content scripts wait for this resolution before deciding whether the
-    // current document is the configured start page.
-    return ensureStartupManagedRefresh();
+async function getEffectiveConfiguration() {
+    // Resolve again for every new page or popup. This avoids retaining a
+    // startup fallback if Managed Storage became available after the first
+    // background wake-up (a common situation while debugging the extension).
+    startupManagedRefreshPromise = refreshEffectiveConfiguration();
+    return startupManagedRefreshPromise;
 }
 
 async function refreshEffectiveConfiguration() {
@@ -218,6 +232,10 @@ async function clearLocalOverrides() {
 function validateCompleteConfiguration(source) {
     const config = {
         ...validateEditableConfiguration(source),
+        kioskRestrictions: InactivityKioskRestrictionsCore.validateKioskRestrictions(
+            source.kioskRestrictions,
+            (selector) => document.querySelector(selector)
+        ),
         hostname: requireString(source.hostname, "hostname", CONFIG_TEXT_LIMITS.hostname),
         ip: requireString(source.ip, "ip", CONFIG_TEXT_LIMITS.ip)
     };
@@ -233,7 +251,11 @@ function validateEditableConfiguration(source) {
     const config = {
         modalAfter: requirePositiveNumber(source.modalAfter, "modalAfter"),
         popupLife: requirePositiveNumber(source.popupLife, "popupLife"),
-        redirectUrl: requireRedirectUrl(source.redirectUrl)
+        redirectUrl: requireRedirectUrl(source.redirectUrl),
+        kioskRestrictionsEnabled: requireBoolean(
+            source.kioskRestrictionsEnabled,
+            "kioskRestrictionsEnabled"
+        )
     };
 
     for (const [key, maxLength] of Object.entries(CONFIG_TEXT_LIMITS)) {
@@ -267,7 +289,7 @@ function readStoredFallback(stored) {
         });
     } catch (error) {
         console.warn("Stored configuration is invalid; using defaults:", error);
-        return { ...DEFAULT_CONFIGURATION };
+        return validateCompleteConfiguration(DEFAULT_CONFIGURATION);
     }
 }
 
@@ -287,6 +309,13 @@ function requirePositiveNumber(value, key) {
         throw new Error(`Configuration key "${key}" must be a positive number.`);
     }
     return number;
+}
+
+function requireBoolean(value, key) {
+    if (typeof value !== "boolean") {
+        throw new Error(`Configuration key "${key}" must be a boolean.`);
+    }
+    return value;
 }
 
 function requireRedirectUrl(value) {

@@ -6,12 +6,19 @@ const defaultParameters = {
     modalAfter: 60,
     popupLife: 30,
     redirectUrl: "about:blank",
-    titleFR: "Inactivit&eacute; d&eacute;tect&eacute;e !",
-    txtFR: "Voulez-vous maintenir la session ouverte?",
-    titleNL: "Inactiviteit gedetecteerd !",
-    txtNL: "Wil je de sessie open houden?",
-    titleEN: "Inactivity detected !",
-    txtEN: "Do you want to keep the session open?",
+    titleFR: "Inactivité détectée",
+    txtFR: "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
+    btnContinueFR: "Oui, continuer ma session",
+    btnQuitFR: "Non, quitter",
+    titleNL: "Inactiviteit gedetecteerd",
+    txtNL: "U hebt de kiosk al enige tijd niet meer gebruikt.\nWilt u deze blijven gebruiken?",
+    btnContinueNL: "Ja, mijn sessie voortzetten",
+    btnQuitNL: "Nee, afsluiten",
+    titleEN: "Inactivity detected",
+    txtEN: "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
+    btnContinueEN: "Yes, continue my session",
+    btnQuitEN: "No, exit",
+    kioskRestrictionsEnabled: true,
     hostname: "",
     ip: ""
 };
@@ -20,22 +27,31 @@ const editableFieldIds = [
     "modalAfter",
     "popupLife",
     "redirectUrl",
+    "kioskRestrictionsEnabled",
     "titleFR",
     "txtFR",
+    "btnContinueFR",
+    "btnQuitFR",
     "titleNL",
     "txtNL",
+    "btnContinueNL",
+    "btnQuitNL",
     "titleEN",
-    "txtEN"
+    "txtEN",
+    "btnContinueEN",
+    "btnQuitEN"
 ];
 
 const validateButton = document.getElementById("extTimeoutOptionbtn");
-const refreshManagedButton = document.getElementById("refreshManagedConfigBtn");
-const clearOverridesButton = document.getElementById("clearLocalOverridesBtn");
+const unlockConfigButton = document.getElementById("unlockConfigBtn");
+const useManagedValuesButton = document.getElementById("useManagedValuesBtn");
 const managedConfigStatus = document.getElementById("managedConfigStatus");
+const kioskRestrictionsSummary = document.getElementById("kioskRestrictionsSummary");
+let currentConfigurationState = null;
 
 validateButton.addEventListener("click", saveLocalOverrides);
-refreshManagedButton.addEventListener("click", refreshManagedConfiguration);
-clearOverridesButton.addEventListener("click", clearLocalOverrides);
+unlockConfigButton.addEventListener("click", unlockConfiguration);
+useManagedValuesButton.addEventListener("click", useManagedValues);
 
 async function loadEffectiveConfiguration() {
     try {
@@ -61,31 +77,39 @@ async function loadEffectiveConfiguration() {
 }
 
 function renderConfiguration(result) {
+    currentConfigurationState = result;
+
     for (const [key, value] of Object.entries(result.config)) {
         const element = document.getElementById(key);
         if (element) {
-            element.value = decodeHTML(String(value));
+            if (key === "kioskRestrictionsEnabled") {
+                element.checked = Boolean(value);
+            } else if (key !== "kioskRestrictions") {
+                element.value = decodeHTML(String(value));
+            }
         }
     }
+    renderKioskRestrictionsSummary(result.config.kioskRestrictions);
 
-    const editingLocked =
+    // Configuration always opens in read-only mode. Editing requires an
+    // explicit user action so merely opening the popup cannot create an
+    // accidental local override.
+    setEditableFieldsDisabled(true);
+    validateButton.disabled = true;
+    unlockConfigButton.disabled =
         result.managedAvailable && !result.allowLocalOverrides;
-    for (const fieldId of editableFieldIds) {
-        document.getElementById(fieldId).disabled = editingLocked;
-    }
-    validateButton.disabled = editingLocked;
-    clearOverridesButton.disabled = !result.localOverridesPresent;
+    useManagedValuesButton.disabled = !result.managedAvailable;
 
     if (result.managedAvailable) {
         managedConfigStatus.className = "status-success";
-        if (editingLocked) {
+        if (!result.allowLocalOverrides) {
             managedConfigStatus.textContent =
-                "Managed configuration loaded. Local changes are disabled.";
+                "Managed Configuration Loaded — local changes are disabled.";
         } else if (result.localOverridesActive) {
             managedConfigStatus.textContent =
-                "Managed configuration loaded with local overrides.";
+                "Managed Configuration Loaded — local override active.";
         } else {
-            managedConfigStatus.textContent = "Managed configuration loaded.";
+            managedConfigStatus.textContent = "Managed Configuration Loaded";
         }
     } else {
         managedConfigStatus.className = result.managedError ? "status-error" : "";
@@ -109,37 +133,41 @@ async function saveLocalOverrides() {
     }
 }
 
-async function refreshManagedConfiguration() {
-    setButtonsDisabled(true);
-    managedConfigStatus.className = "";
-    managedConfigStatus.textContent = "Reload in progress…";
-
-    try {
-        const result = await browser.runtime.sendMessage({
-            type: "refresh-managed-config"
-        });
-        renderConfiguration(result);
-    } catch (error) {
+function unlockConfiguration() {
+    if (
+        currentConfigurationState?.managedAvailable &&
+        !currentConfigurationState.allowLocalOverrides
+    ) {
         managedConfigStatus.className = "status-error";
-        managedConfigStatus.textContent = `Reload failed: ${error.message || error}`;
-    } finally {
-        refreshManagedButton.disabled = false;
+        managedConfigStatus.textContent =
+            "Managed Configuration Loaded — local changes are disabled.";
+        return;
     }
+
+    setEditableFieldsDisabled(false);
+    validateButton.disabled = false;
+    managedConfigStatus.className = "";
+    managedConfigStatus.textContent =
+        "Configuration unlocked. Validate to save a local override.";
 }
 
-async function clearLocalOverrides() {
+async function useManagedValues() {
     setButtonsDisabled(true);
 
     try {
+        // Managed storage itself is read-only. Removing localOverrides makes
+        // the background resolve and expose the managed values again.
         const result = await browser.runtime.sendMessage({
             type: "clear-local-overrides"
         });
         renderConfiguration(result);
     } catch (error) {
+        if (currentConfigurationState) {
+            renderConfiguration(currentConfigurationState);
+        }
         managedConfigStatus.className = "status-error";
-        managedConfigStatus.textContent = `Reset failed: ${error.message || error}`;
-    } finally {
-        refreshManagedButton.disabled = false;
+        managedConfigStatus.textContent =
+            `Unable to use managed values: ${error.message || error}`;
     }
 }
 
@@ -167,17 +195,43 @@ function readAndValidateForm() {
         redirectUrl,
         titleFR: document.getElementById("titleFR").value,
         txtFR: document.getElementById("txtFR").value,
+        btnContinueFR: document.getElementById("btnContinueFR").value,
+        btnQuitFR: document.getElementById("btnQuitFR").value,
         titleNL: document.getElementById("titleNL").value,
         txtNL: document.getElementById("txtNL").value,
+        btnContinueNL: document.getElementById("btnContinueNL").value,
+        btnQuitNL: document.getElementById("btnQuitNL").value,
         titleEN: document.getElementById("titleEN").value,
-        txtEN: document.getElementById("txtEN").value
+        txtEN: document.getElementById("txtEN").value,
+        btnContinueEN: document.getElementById("btnContinueEN").value,
+        btnQuitEN: document.getElementById("btnQuitEN").value,
+        kioskRestrictionsEnabled: document.getElementById("kioskRestrictionsEnabled").checked
     };
+}
+
+function renderKioskRestrictionsSummary(rules) {
+    kioskRestrictionsSummary.replaceChildren();
+
+    for (const rule of Array.isArray(rules) ? rules : []) {
+        const item = document.createElement("li");
+        const state = rule.enabled ? "enabled" : "disabled";
+        const hostnames = Array.isArray(rule.hostnames) ? rule.hostnames.join(", ") : "";
+        const pathPrefixes = Array.isArray(rule.pathPrefixes) ? rule.pathPrefixes.join(", ") : "";
+        item.textContent = `${rule.id} (${state}) — Hosts: ${hostnames}; Paths: ${pathPrefixes}`;
+        kioskRestrictionsSummary.appendChild(item);
+    }
 }
 
 function setButtonsDisabled(disabled) {
     validateButton.disabled = disabled;
-    refreshManagedButton.disabled = disabled;
-    clearOverridesButton.disabled = disabled;
+    unlockConfigButton.disabled = disabled;
+    useManagedValuesButton.disabled = disabled;
+}
+
+function setEditableFieldsDisabled(disabled) {
+    for (const fieldId of editableFieldIds) {
+        document.getElementById(fieldId).disabled = disabled;
+    }
 }
 
 function decodeHTML(value) {
