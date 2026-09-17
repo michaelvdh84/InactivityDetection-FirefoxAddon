@@ -8,7 +8,11 @@ const activityEvents = [
     "mousedown",
     "touchstart",
     "click",
-    "keypress"
+    "keydown",
+    "input",
+    "compositionstart",
+    "compositionupdate",
+    "compositionend"
 ];
 
 //This is the GET value passed by the EPNLauncher to define the language
@@ -27,15 +31,30 @@ function resetTimer() {
     }, 1000);
 }
 
+function handleActivity(event) {
+    // Ignore les événements artificiellement générés par le JavaScript du site.
+    if (event && event.isTrusted === false) {
+        return;
+    }
+
+    resetTimer();
+}
+
+
 function enableActivityDetection() {
     if (activityDetectionEnabled) {
         return;
     }
 
     activityDetectionEnabled = true;
+
     for (const eventName of activityEvents) {
-        window.addEventListener(eventName, resetTimer);
+        window.addEventListener(eventName, handleActivity, {
+            capture: true,
+            passive: true
+        });
     }
+
     resetTimer();
 }
 
@@ -81,7 +100,6 @@ if (curl.searchParams.has(epnAutoParamLang)) {
     epnLang["epnLang"] = launcherLang;
     // Store the EPNLauncher value
     browser.storage.local.set(epnLang);
-    console.log("EPN Launcher Language: " + launcherLang);
 }
 
 var urlContains = "itsme.be"
@@ -192,14 +210,14 @@ browser.storage.onChanged.addListener((changes, areaName) => {
 //Promise
 function showModal(item) {
     const showModalAfter = item.modalAfter * 1000; // Convert to milliseconds
-    console.log("ShowModal After : " + showModalAfter);
+    console.log("Show popup after : " + showModalAfter+ " ms");
     startIdleTimer(showModalAfter);
 }
 
 // //Promise
 function popupLife(item) {
     var showPopupLife = item.popupLife * 1000;
-    console.log("Popup Life : " + showPopupLife)
+    console.log("Reset after : " + showPopupLife + " ms");
      //console.log("Popup Life : " + popupLife)
      getModalParameters(showPopupLife);
 
