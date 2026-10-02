@@ -119,6 +119,47 @@ managed values** does not force Firefox to reread the file.
 For registry paths, JSON deployment, validation, and troubleshooting, see
 [Managed Storage setup](managedStorage.md).
 
+### Set the PC hostname during deployment
+
+Run [`deploy/Set-KioskHostname.ps1`](deploy/Set-KioskHostname.ps1) on each
+Windows kiosk before starting Firefox. It sets `data.hostname` to the PC's
+`COMPUTERNAME` environment variable. Edit `$ConfigPath` at the top of the script
+to point to the deployed Managed Storage JSON, or pass the path when running it:
+
+```powershell
+.\deploy\Set-KioskHostname.ps1 -ConfigPath 'C:\ProgramData\Brucity\InactivityDetection\prod.json'
+```
+
+Without a path argument, the script updates `managed-storage/prod.json` in this
+repository. The target must already exist and be writable by the account running
+the script.
+
+To send the hostname to the portal, put `%COMPUTERNAME%` in a query parameter
+of `data.redirectUrl` in your configuration template:
+
+```json
+"redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/?kioksID=%COMPUTERNAME%"
+```
+
+For a PC named `BORNE-001`, the script writes:
+
+```json
+"redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/?kioksID=BORNE-001",
+"hostname": "BORNE-001"
+```
+
+Use the query parameter name expected by your portal (`kioksID` in this example).
+The script URL-encodes the computer name and replaces only the literal
+`%COMPUTERNAME%` marker. Firefox and the extension do not expand environment
+variables or substitute the `hostname` field themselves.
+
+The script updates the JSON in place and preserves the other configuration
+values. Once replaced, the marker is gone: deploy a fresh template before running
+the script on another PC or after renaming a PC. Close Firefox completely before
+the update and restart it afterward. If a local override contains a different
+`redirectUrl`, select **Use managed values** in the popup, or deploy
+`allowLocalOverrides: false` to enforce the managed configuration.
+
 ## Session reset and Dynamics logout
 
 A reset can be triggered by the **Quit** button, grace-period expiry, or the
