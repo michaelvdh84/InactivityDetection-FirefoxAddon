@@ -93,3 +93,18 @@ test("accepts each declared string limit and rejects the next character", () => 
     assert.equal(core.validateKioskRestrictions([{ ...validRule, selectors: [selectorAtLimit] }], validateSelector)[0].selectors[0], selectorAtLimit);
     assert.throws(() => core.validateKioskRestrictions([{ ...validRule, selectors: [`${selectorAtLimit}x`] }], validateSelector), /selectors/);
 });
+
+test("root prefix matches the entire HTTPS site while preserving exact host scope", () => {
+    const rule = core.validateKioskRestrictions([{
+        id: "cookies-mybxl", enabled: true,
+        hostnames: ["www.mybxl.be"], pathPrefixes: ["/"],
+        selectors: [".cmpwrapper", "#cmpwrapper"]
+    }], validateSelector)[0];
+    for (const pathname of ["/", "/fr-BE/language-selection/", "/fr-BE/context-selection//?redirecturl=%2Ffr-BE%2F", "/nl-BE/account/profile#form"]) {
+        assert.equal(core.matchesKioskRule(rule, "https://www.mybxl.be" + pathname), true);
+    }
+    for (const url of ["http://www.mybxl.be/fr-BE/", "https://mybxl.be/fr-BE/", "https://sub.www.mybxl.be/fr-BE/", "https://www.mybxl.be.example/fr-BE/"]) {
+        assert.equal(core.matchesKioskRule(rule, url), false);
+    }
+    assert.equal(core.matchesKioskRule({ ...rule, enabled: false }, "https://www.mybxl.be/fr-BE/"), false);
+});

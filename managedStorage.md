@@ -114,6 +114,11 @@ désactive toutes les règles, tandis que `enabled: false` ne désactive que la
 règle concernée. Dans les deux cas, les éléments cachés par l'extension sont
 restaurés immédiatement.
 
+Pour appliquer une règle à toutes les pages du site, utiliser
+`"pathPrefixes": ["/"]`. Le préfixe racine couvre tous les chemins, quelles que
+soient la langue, les paramètres ou le fragment. Le périmètre reste limité aux
+noms HTTPS exacts de `hostnames` ; les sous-domaines ne sont pas inclus.
+
 Sont invalides, par exemple, `*.example.be`, `https://example.be/path`,
 `example`, `kiosk/path`, deux règles ayant le même `id`, `[data-x=`, ou un
 sélecteur vide. La configuration est atomique : une seule propriété ou règle

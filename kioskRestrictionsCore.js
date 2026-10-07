@@ -81,7 +81,7 @@
         const path = normalizePath(url.pathname).toLowerCase();
         return rule.pathPrefixes.some((prefix) => {
             const normalized = normalizePath(String(prefix)).toLowerCase();
-            return path === normalized || path.startsWith(`${normalized}/`);
+            return normalized === "/" || path === normalized || path.startsWith(`${normalized}/`);
         });
     }
 

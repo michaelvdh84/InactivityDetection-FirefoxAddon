@@ -214,7 +214,8 @@ The extension preserves the portal's authentication-flow exceptions:
   exact IBZ PIN/PUK path. Matching elements restore immediately when its rule
   is disabled, the global switch is off, or the URL no longer matches;
 - rules use exact hostnames and path-prefix boundaries: `/a/b` matches `/a/b`
-  and `/a/b/child`, but not `/a/b-extra`.
+  and `/a/b/child`, but not `/a/b-extra`. Use `"pathPrefixes": ["/"]` to
+  match every path on the exact configured HTTPS hostname.
 
 Matching elements receive inline `display: none !important` so site CSS with
 more specific selectors cannot override the restriction. The extension reapplies
