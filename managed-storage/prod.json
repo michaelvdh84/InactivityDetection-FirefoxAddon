@@ -3,9 +3,9 @@
   "description": "Managed configuration for the Brucity inactivity extension",
   "type": "storage",
   "data": {
-    "modalAfter": 19,
-    "popupLife": 20,
-    "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/",
+    "modalAfter": 40,
+    "popupLife": 30,
+    "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/?is_self_service_kiosk=true&self_service_kiosk_id=%COMPUTERNAME%",
     "titleFR": "Inactivité détectée",
     "txtFR": "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
     "btnContinueFR": "Oui, continuer ma session",
@@ -21,6 +21,7 @@
     "hostname": "BORNE-TEST",
     "ip": "192.0.2.10",
     "allowLocalOverrides": true,
+    "csamLanguageSyncEnabled": true,
     "kioskRestrictionsEnabled": true,
     "kioskRestrictions": [
       {
@@ -29,7 +30,7 @@
         "hostnames": ["idp.iamfas.belgium.be", "idp.iamfas.int.belgium.be"],
         "pathPrefixes": ["/fas/XUI/"],
         "selectors": [
-          "header", "#header", ".header", ".navbar", ".csam-header",
+		  "csam-cookie-bar", "csam-cookie-bar-noFixed",".csam-cookie-bar", ".csam-cookie-bar-noFixed","#csam-cookie-bar", "#csam-cookie-bar-noFixed",
           "[role='banner']", "footer", "#footer", ".footer",
           ".csam-footer-container", ".csam-footer-content-container",
           "[role='contentinfo']", "video", ".video-preview-btn",
@@ -59,6 +60,20 @@
         "hostnames": ["www.ibz.rrn.fgov.be"],
         "pathPrefixes": ["/de/buerger/identitaetsdokumente/eid/beantragung-pin-code"],
         "selectors": ["header.header", "#superfish-main", "#sidebar-first", ".footer-top", ".region-footer-bottom"]
+      },
+	  {
+        "id": "mygov-en",
+        "enabled": true,
+        "hostnames": ["idp.mygov.be"],
+        "pathPrefixes": ["/am/XUI"],
+        "selectors": ["footer-nav-container", "#footer-nav-container", ".footer-nav-container", ".footer-top", "qr-steps-content", ".qr-steps-content", "#qr-steps-content", "cookie-notice", ".cookie-notice", "#cookie-notice", "qr-steps", "desktop", ".qr-steps", ".desktop", "#qr-steps", "#desktop"]
+      },
+	  {
+        "id": "cookies-mybxl",
+        "enabled": true,
+        "hostnames": ["www.mybxl.be"],
+        "pathPrefixes": ["/"],
+        "selectors": [".cmpwrapper", "#cmpwrapper" ]
       }
     ]
   }
