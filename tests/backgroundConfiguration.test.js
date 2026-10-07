@@ -130,3 +130,29 @@ test("first install uses independent copies of built-in FAS and IBZ rules", asyn
     assert.deepEqual(plain(result.config.kioskRestrictions.map((rule) => rule.id)), ["fas-login", "ibz-pin-puk"]);
     assert.notEqual(result.config.kioskRestrictions, saved.kioskRestrictions);
 });
+
+test("CSAM language policy is optional, disabled by default and managed-only", async () => {
+    const oldPolicy = { ...completeConfig, kioskRestrictions: managedRules };
+    const omitted = await createFixture({ managed: oldPolicy }).sendMessage({ type: "get-effective-config" });
+    assert.equal(omitted.config.csamLanguageSyncEnabled, false);
+    const fixture = createFixture({ managed: { ...oldPolicy, csamLanguageSyncEnabled: true } });
+    const enabled = await fixture.sendMessage({ type: "save-local-overrides", config: {
+        ...completeEditableConfig, kioskRestrictionsEnabled: true, csamLanguageSyncEnabled: false
+    } });
+    assert.equal(enabled.config.csamLanguageSyncEnabled, true);
+    assert.equal(fixture.saved.localOverrides.csamLanguageSyncEnabled, undefined);
+    const initial = await createFixture().sendMessage({ type: "get-effective-config" });
+    assert.equal(initial.config.csamLanguageSyncEnabled, false);
+});
+
+test("invalid CSAM policy rejects managed values atomically and preserves the last valid fallback", async () => {
+    const fixture = createFixture({
+        managed: { ...completeConfig, modalAfter: 999, kioskRestrictions: managedRules, csamLanguageSyncEnabled: "true" },
+        local: { ...completeConfig, modalAfter: 42, kioskRestrictions: storedFallbackRules, csamLanguageSyncEnabled: true }
+    });
+    const result = await fixture.sendMessage({ type: "get-effective-config" });
+    assert.equal(result.managedAvailable, false);
+    assert.equal(result.config.modalAfter, 42);
+    assert.equal(result.config.csamLanguageSyncEnabled, true);
+    assert.match(result.managedError, /csamLanguageSyncEnabled/);
+});

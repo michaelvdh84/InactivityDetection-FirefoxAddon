@@ -20,11 +20,14 @@
       "activeTab",
       "browsingData",
       "tabs",
-      "storage"
+      "storage",
+      "scripting"
     ],
 
+    "host_permissions": ["https://idp.iamfas.belgium.be/*"],
+
     "background": {
-      "scripts": ["kioskRestrictionsCore.js", "background.js"]
+      "scripts": ["kioskRestrictionsCore.js", "csamLanguageCore.js", "background.js", "csamLanguageBackground.js"]
     },
 
     "chrome_settings_overrides": {

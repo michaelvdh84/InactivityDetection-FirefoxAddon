@@ -247,6 +247,17 @@ banner only changes its visibility; it does not record consent or prevent cookie
 These are presentation restrictions, not browser security controls: hiding an
 element does not block its URL, network request, or browser navigation.
 
+## Synchronisation de la langue MyBxl et CSAM
+
+La politique facultative `csamLanguageSyncEnabled` vaut `false` par défaut.
+Avec `true`, la langue officielle MyBxl (`fr-BE`, `nl-BE`, `en-US`) est mémorisée
+par onglet pendant B2C, puis appliquée une seule fois via le sélecteur CSAM
+existant. Un accès direct sans langue connue reste inchangé et les choix manuels
+après synchronisation restent libres. Aucune URL d’authentification ni cookie
+n’est modifié. Cette option est exclusivement administrée.
+
+Voir le [guide français de configuration, permissions et validation](csamLanguageSync.md).
+
 ## Installation for development
 
 1. Clone or download the repository.

@@ -21,6 +21,7 @@
     "hostname": "BORNE-TEST",
     "ip": "192.0.2.10",
     "allowLocalOverrides": true,
+    "csamLanguageSyncEnabled": false,
     "kioskRestrictionsEnabled": true,
     "kioskRestrictions": [
       {

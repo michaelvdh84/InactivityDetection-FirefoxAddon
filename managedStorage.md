@@ -73,7 +73,8 @@ Gecko déclaré dans `manifest.json` :
 ```
 
 Toutes les propriétés présentées dans `data` sont obligatoires, sauf
-`allowLocalOverrides`, qui vaut `true` par défaut :
+`allowLocalOverrides`, qui vaut `true` par défaut, et
+`csamLanguageSyncEnabled`, qui vaut `false` par défaut :
 
 - `modalAfter` et `popupLife` sont des nombres strictement positifs exprimés en
   secondes ;
@@ -86,6 +87,15 @@ Toutes les propriétés présentées dans `data` sont obligatoires, sauf
   `title`, `txt`, `btnContinue` et `btnQuit` ;
 - `allowLocalOverrides: true` autorise **Validate** dans le panneau ;
 - `allowLocalOverrides: false` impose le JSON et désactive les champs éditables.
+
+### Synchronisation de la langue CSAM
+
+Ajouter `"csamLanguageSyncEnabled": true` dans `data` du manifeste complet pour
+activer la synchronisation MyBxl → CSAM. Cette clé est un booléen facultatif,
+exclusivement administré, absent des overrides locaux. Les politiques anciennes
+restent valides et la valeur par défaut est `false`. Une valeur invalide rejette
+atomiquement le manifeste, avec le fallback local existant. Redémarrer Firefox
+après le déploiement. Voir le [guide technique et les essais Firefox](csamLanguageSync.md).
 
 ### Règles de restriction d'interface kiosque
 

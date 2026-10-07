@@ -24,6 +24,7 @@ const DEFAULT_CONFIGURATION = {
     btnContinueEN: "Yes, continue my session",
     btnQuitEN: "No, exit",
     kioskRestrictionsEnabled: true,
+    csamLanguageSyncEnabled: false,
     kioskRestrictions: InactivityKioskRestrictionsCore.DEFAULT_KIOSK_RESTRICTIONS,
     hostname: "",
     ip: ""
@@ -65,7 +66,7 @@ const EDITABLE_CONFIG_KEYS = [
     "kioskRestrictionsEnabled"
 ];
 
-const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "kioskRestrictions", "hostname", "ip"];
+const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "kioskRestrictions", "hostname", "ip", "csamLanguageSyncEnabled"];
 
 const WEB_DATA_TO_REMOVE = {
     cache: true,
@@ -232,6 +233,8 @@ async function clearLocalOverrides() {
 function validateCompleteConfiguration(source) {
     const config = {
         ...validateEditableConfiguration(source),
+        csamLanguageSyncEnabled: source.csamLanguageSyncEnabled === undefined
+            ? false : requireBoolean(source.csamLanguageSyncEnabled, "csamLanguageSyncEnabled"),
         kioskRestrictions: InactivityKioskRestrictionsCore.validateKioskRestrictions(
             source.kioskRestrictions,
             (selector) => document.querySelector(selector)
