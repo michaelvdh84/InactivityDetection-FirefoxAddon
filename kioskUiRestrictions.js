@@ -2,7 +2,6 @@
     "use strict";
 
     const HIDDEN_ATTRIBUTE = "data-inactivity-plugin-hidden";
-    const HIDDEN_SELECTOR = '[data-inactivity-plugin-hidden="true"]';
     const EFFECTIVE_CONFIGURATION_KEYS = new Set([
         "kioskRestrictionsEnabled",
         "kioskRestrictions"
@@ -29,6 +28,7 @@
         addStorageListener,
         logError
     }) {
+        const hiddenElements = new Map();
         let configuration = null;
         let observer = null;
         let running = false;
@@ -46,9 +46,16 @@
         }
 
         function restoreMarkedElements() {
-            for (const element of documentObject.querySelectorAll(HIDDEN_SELECTOR)) {
-                element.removeAttribute(HIDDEN_ATTRIBUTE);
+            for (const [element, original] of hiddenElements) {
+                if (original.display) {
+                    element.style.setProperty("display", original.display, original.priority);
+                } else {
+                    element.style.removeProperty("display");
+                }
+                if (original.marker === null) element.removeAttribute(HIDDEN_ATTRIBUTE);
+                else element.setAttribute(HIDDEN_ATTRIBUTE, original.marker);
             }
+            hiddenElements.clear();
         }
 
         function getMatchingSelectors() {
@@ -62,7 +69,22 @@
             for (const { ruleId, selector } of matchingSelectors) {
                 try {
                     for (const element of documentObject.querySelectorAll(selector)) {
-                        element.setAttribute(HIDDEN_ATTRIBUTE, "true");
+                        if (!hiddenElements.has(element)) {
+                            hiddenElements.set(element, {
+                                display: element.style.getPropertyValue("display"),
+                                priority: element.style.getPropertyPriority("display"),
+                                marker: element.getAttribute(HIDDEN_ATTRIBUTE)
+                            });
+                        }
+                        if (element.getAttribute(HIDDEN_ATTRIBUTE) !== "true") {
+                            element.setAttribute(HIDDEN_ATTRIBUTE, "true");
+                        }
+                        // Inline !important wins over more specific site stylesheet rules.
+                        // Avoid redundant writes: style changes are observed below.
+                        if (element.style.getPropertyValue("display") !== "none" ||
+                            element.style.getPropertyPriority("display") !== "important") {
+                            element.style.setProperty("display", "none", "important");
+                        }
                     }
                 } catch (error) {
                     reportError(`Invalid kiosk selector in rule "${ruleId}": ${selector}`, error);
@@ -79,7 +101,9 @@
             });
             observer.observe(documentObject.documentElement, {
                 childList: true,
-                subtree: true
+                subtree: true,
+                attributes: true,
+                attributeFilter: ["class", "id", "style", HIDDEN_ATTRIBUTE]
             });
         }
 

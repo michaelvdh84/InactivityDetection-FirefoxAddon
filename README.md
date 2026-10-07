@@ -216,6 +216,26 @@ The extension preserves the portal's authentication-flow exceptions:
 - rules use exact hostnames and path-prefix boundaries: `/a/b` matches `/a/b`
   and `/a/b/child`, but not `/a/b-extra`.
 
+Matching elements receive inline `display: none !important` so site CSS with
+more specific selectors cannot override the restriction. The extension reapplies
+hiding after dynamic insertions and changes to class, ID, or inline style.
+Disabling a restriction restores the original inline display value and priority.
+No additional rule option is required. For example, a managed MyBXL cookie rule
+can use:
+
+```json
+{
+  "id": "cookies-mybxl",
+  "enabled": true,
+  "hostnames": ["www.mybxl.be"],
+  "pathPrefixes": ["/fr-BE/language-selection"],
+  "selectors": [".cmpwrapper", "#cmpwrapper"]
+}
+```
+
+Hostnames are literal names without escaping or wildcards. Hiding a cookie
+banner only changes its visibility; it does not record consent or prevent cookies.
+
 These are presentation restrictions, not browser security controls: hiding an
 element does not block its URL, network request, or browser navigation.
 

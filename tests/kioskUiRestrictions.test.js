@@ -30,7 +30,18 @@ function configuration({ enabled = true, rules = [FAS_RULE, IBZ_RULE] } = {}) {
 
 function createElement() {
     const attributes = new Map();
+    const properties = new Map();
     return {
+        style: {
+            writes: 0,
+            getPropertyValue(name) { return properties.get(name)?.value || ""; },
+            getPropertyPriority(name) { return properties.get(name)?.priority || ""; },
+            setProperty(name, value, priority = "") {
+                this.writes += 1;
+                properties.set(name, { value, priority });
+            },
+            removeProperty(name) { properties.delete(name); }
+        },
         getAttribute(name) { return attributes.get(name) ?? null; },
         hasAttribute(name) { return attributes.has(name); },
         setAttribute(name, value) { attributes.set(name, value); },
@@ -213,4 +224,70 @@ test("stop restores only elements marked by the extension", async () => {
     assert.equal(extensionMarked.hasAttribute("data-inactivity-plugin-hidden"), false);
     assert.equal(hostMarked.getAttribute("aria-hidden"), "true");
     assert.equal(observer.disconnectCalls, 1);
+});
+
+const MYBXL_RULE = {
+    id: "cookies-mybxl", enabled: true,
+    hostnames: ["www.mybxl.be"],
+    pathPrefixes: ["/fr-BE/language-selection"],
+    selectors: [".cmpwrapper", "#cmpwrapper", "cmpwrapper"]
+};
+
+test("forces MyBXL cookie hiding and restores the original inline display and priority", async () => {
+    const wrapper = createElement();
+    wrapper.style.setProperty("display", "block", "important");
+    wrapper.style.setProperty("color", "red");
+    const documentObject = createDocument({ ".cmpwrapper": [wrapper], "#cmpwrapper": [wrapper] });
+    const { controller, storageListener } = createController({
+        pageUrl: "https://www.mybxl.be/fr-Be/language-selection/?redirect=fr-be",
+        documentObject, config: configuration({ rules: [MYBXL_RULE] })
+    });
+    await controller.start();
+    assert.equal(wrapper.style.getPropertyValue("display"), "none");
+    assert.equal(wrapper.style.getPropertyPriority("display"), "important");
+    storageListener({ kioskRestrictions: { newValue: [{ ...MYBXL_RULE, enabled: false }] } }, "local");
+    assert.equal(wrapper.style.getPropertyValue("display"), "block");
+    assert.equal(wrapper.style.getPropertyPriority("display"), "important");
+    assert.equal(wrapper.style.getPropertyValue("color"), "red");
+    assert.equal(wrapper.hasAttribute("data-inactivity-plugin-hidden"), false);
+});
+
+test("reapplies hiding after site style changes without repeated mutation writes", async () => {
+    const wrapper = createElement();
+    const documentObject = createDocument({ ".cmpwrapper": [wrapper] });
+    const { controller, observer } = createController({
+        pageUrl: "https://www.mybxl.be/fr-Be/language-selection/",
+        documentObject, config: configuration({ rules: [MYBXL_RULE] })
+    });
+    await controller.start();
+    const initialWrites = wrapper.style.writes;
+    observer.callback();
+    assert.equal(wrapper.style.writes, initialWrites);
+    wrapper.style.setProperty("display", "block", "important");
+    observer.callback();
+    assert.equal(wrapper.style.getPropertyValue("display"), "none");
+    assert.equal(wrapper.style.getPropertyPriority("display"), "important");
+    const reappliedWrites = wrapper.style.writes;
+    observer.callback();
+    assert.equal(wrapper.style.writes, reappliedWrites);
+    controller.stop();
+    assert.equal(wrapper.style.getPropertyValue("display"), "");
+    assert.equal(wrapper.style.getPropertyPriority("display"), "");
+});
+
+test("restores tracked elements even when detached or their marker is removed", async () => {
+    const header = createElement();
+    header.style.setProperty("display", "flex");
+    const matches = [header];
+    const documentObject = {
+        documentElement: {},
+        querySelectorAll(selector) { return selector === "header" ? matches : []; }
+    };
+    const { controller } = createController({ pageUrl: FAS_URL, documentObject });
+    await controller.start();
+    header.removeAttribute("data-inactivity-plugin-hidden");
+    matches.length = 0;
+    controller.stop();
+    assert.equal(header.style.getPropertyValue("display"), "flex");
+    assert.equal(header.style.getPropertyPriority("display"), "");
 });
