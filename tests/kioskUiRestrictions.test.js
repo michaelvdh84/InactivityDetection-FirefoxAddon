@@ -82,7 +82,7 @@ function createObserverFactory() {
         callback: null,
         observeCalls: 0,
         disconnectCalls: 0,
-        observe() { this.observeCalls += 1; },
+        observe(target) { this.target = target; this.observeCalls += 1; },
         disconnect() { this.disconnectCalls += 1; }
     };
     return {
@@ -290,4 +290,20 @@ test("restores tracked elements even when detached or their marker is removed", 
     controller.stop();
     assert.equal(header.style.getPropertyValue("display"), "flex");
     assert.equal(header.style.getPropertyPriority("display"), "");
+});
+
+test("starts observing before the document root exists and hides parser-created elements", async () => {
+    const documentObject = createDocument();
+    documentObject.documentElement = null;
+    const { controller, observer } = createController({ pageUrl: FAS_URL, documentObject });
+    await controller.start();
+    assert.equal(observer.target, documentObject);
+    const header = createElement();
+    documentObject.documentElement = {};
+    documentObject.add("header", header);
+    observer.callback([{ addedNodes: [header] }]);
+    assert.equal(header.style.getPropertyValue("display"), "none");
+    assert.equal(header.style.getPropertyPriority("display"), "important");
+    controller.stop();
+    assert.equal(header.style.getPropertyValue("display"), "");
 });

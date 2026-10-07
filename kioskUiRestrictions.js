@@ -99,7 +99,8 @@
                     applyMatchingSelectors(getMatchingSelectors());
                 }
             });
-            observer.observe(documentObject.documentElement, {
+            // At document_start the root element may not exist yet.
+            observer.observe(documentObject, {
                 childList: true,
                 subtree: true,
                 attributes: true,

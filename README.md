@@ -217,6 +217,13 @@ The extension preserves the portal's authentication-flow exceptions:
   and `/a/b/child`, but not `/a/b-extra`. Use `"pathPrefixes": ["/"]` to
   match every path on the exact configured HTTPS hostname.
 
+Kiosk restrictions and the packaged stylesheet start at `document_start`,
+while inactivity detection starts at `document_idle`. The restriction observer
+watches the document even before its root exists, allowing parser-created
+elements to be hidden earlier and reducing visible flashes. Effective
+configuration is still loaded asynchronously; a flash cannot be ruled out if
+the page paints before configuration arrives.
+
 Matching elements receive inline `display: none !important` so site CSS with
 more specific selectors cannot override the restriction. The extension reapplies
 hiding after dynamic insertions and changes to class, ID, or inline style.
