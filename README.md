@@ -6,8 +6,10 @@ then signs out, clears browser data, and redirects the tab when the session is
 abandoned.
 
 The extension is intended for dedicated Firefox profiles. Session cleanup is
-profile-wide for normal website data and may affect every site open in the same
-profile.
+profile-wide for normal website data and explicitly removes private-window
+cookies too. It may affect every site open in the same profile. Firefox's
+private-storage limitations are described below; this is not a complete renewal
+of a private browsing session.
 
 ## Features
 
@@ -133,18 +135,20 @@ The reset order is deliberate:
 
 1. request the Dynamics logout URL while authentication cookies still exist;
 2. navigate the tab to the packaged neutral `reset.html` page;
-3. clear normal website data with Firefox's `browsingData` API;
-4. navigate the same tab to `redirectUrl`.
+3. clear normal website data, including the browser cache, with Firefox's
+   `browsingData` API;
+4. explicitly clear the `firefox-private` cookie store;
+5. navigate the same tab to `redirectUrl` only after both cleanup calls finish.
 
 The remote logout request is best-effort: local cleanup continues if it cannot
-be loaded. Local cleanup fails closed: if it fails, the portal is not reopened
-with potentially stale session data.
+be loaded. Local cleanup fails closed: if either normal-data or private-cookie
+cleanup fails, the tab stays on `reset.html` and the portal is not reopened.
 
 ### Data removed
 
-- cookies;
+- normal and private-window cookies;
 - browser cache;
-- local and session storage;
+- local and session storage covered by Firefox's browsing-data API;
 - IndexedDB;
 - service workers and their cached data;
 - browsing history;
@@ -153,6 +157,25 @@ with potentially stale session data.
 
 Downloaded files, saved passwords, Managed Storage, and the extension's own
 local configuration are preserved.
+
+### Private windows kept open all day
+
+With `firefox -kiosk -private-window`, the same private session remains alive
+until its last private window closes. Navigating to `reset.html` does not end it.
+Firefox's empty-options cookie-removal path clears normal cookies, so the
+extension separately calls
+`browser.browsingData.removeCookies({ cookieStoreId: "firefox-private" })`.
+The existing bulk call already clears the browser cache; a second cache call is
+unnecessary. The private-store filter must not be added to that bulk call because
+Firefox does not support it for cache, history, form data, or download history.
+
+This fixes private-cookie removal without closing the window. It does **not**
+guarantee removal of all private website storage. Mozilla documents a separate
+[private localStorage limitation](https://bugzilla.mozilla.org/show_bug.cgi?id=1805956).
+No workaround for that limitation is implemented here. Test on the exact Firefox
+version used by the kiosks, and do not treat successful cookie removal as proof
+that all private data was erased. Nor does this change establish the cause of an
+intermittent Dynamics profile-selection error.
 
 Clearing browser data does not necessarily revoke an external SSO or OAuth
 session. The Dynamics logout step addresses the portal session. Signing out of
@@ -188,7 +211,8 @@ element does not block its URL, network request, or browser navigation.
    already open so Firefox injects the current content script and stylesheet.
 
 The temporary add-on is removed when Firefox closes. Managed kiosk deployment
-should use the organization's normal Firefox extension-distribution mechanism.
+uses a signed XPI distributed locally; publication on the add-ons store is not
+required. See [Updating locally force-installed kiosks](docs/deployment.md).
 
 ## Permissions
 
@@ -196,7 +220,7 @@ should use the organization's normal Firefox extension-distribution mechanism.
 | --- | --- |
 | `storage` | read Managed Storage and save resolved settings/local overrides |
 | `tabs` | navigate the requesting tab during logout, cleanup, and redirection |
-| `browsingData` | remove normal website session and browsing data |
+| `browsingData` | remove normal website data and explicitly clear private cookies |
 | `activeTab` | compatibility with the toolbar workflow |
 
 The extension declares that it does not require data collection through its
@@ -208,7 +232,7 @@ There is no build step or external test dependency. Run the Node behavior test,
 syntax checks, and JSON checks from PowerShell:
 
 ```powershell
-node --test tests/kioskRestrictionsCore.test.js
+node --test
 node --check kioskRestrictionsCore.js
 node --check kioskUiRestrictions.js
 node --check timeoutModal.js
@@ -242,6 +266,12 @@ For a manual test, use short timeout values and verify:
 11. on the IBZ PIN/PUK page, only the configured elements are hidden; turning
     off the global switch or disabling its rule restores them immediately, and
     the sibling `.../code-pin-extra` path does not match.
+12. in a private kiosk window kept open between users, set test cookies on a
+    portal and a second test origin; after reset, verify both private cookie
+    sets are absent while extension settings survive. Test private localStorage
+    separately and record any remaining data rather than assuming it was removed.
+13. simulate a private-cookie cleanup failure and verify the tab remains on
+    `reset.html`, without navigating back to the portal.
 
 ## Project structure
 

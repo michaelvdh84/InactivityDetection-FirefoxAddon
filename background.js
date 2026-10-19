@@ -369,6 +369,14 @@ async function resetSession(tabId, requestedLogoutUrl, sourceUrl) {
         // originTypes is intentionally omitted: Firefox then removes normal web
         // data without deleting this extension's own stored configuration.
         await browser.browsingData.remove({}, WEB_DATA_TO_REMOVE);
+
+        // With empty removal options Firefox uses the normal cookie store.
+        // A kiosk's private window can stay open all day, so explicitly clear
+        // its cookies too. Do not apply cookieStoreId to the bulk removal:
+        // Firefox does not support that filter for cache, history, etc.
+        await browser.browsingData.removeCookies({
+            cookieStoreId: "firefox-private"
+        });
         await browser.tabs.update(tabId, { url: targetUrl });
 
         return { ok: true };
