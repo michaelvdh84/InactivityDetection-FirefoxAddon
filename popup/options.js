@@ -18,9 +18,7 @@ const defaultParameters = {
     txtEN: "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
     btnContinueEN: "Yes, continue my session",
     btnQuitEN: "No, exit",
-    kioskRestrictionsEnabled: true,
-    hostname: "",
-    ip: ""
+    kioskRestrictionsEnabled: true
 };
 
 const editableFieldIds = [

@@ -3,6 +3,7 @@ const GET_EFFECTIVE_CONFIG_MESSAGE = "get-effective-config";
 const SAVE_LOCAL_OVERRIDES_MESSAGE = "save-local-overrides";
 const CLEAR_LOCAL_OVERRIDES_MESSAGE = "clear-local-overrides";
 const DEFAULT_REDIRECT_URL = "about:blank";
+const DEFAULT_SESSION_END_ACTION = "close firefox";
 const RESET_PAGE_URL = browser.runtime.getURL("reset.html");
 
 // These defaults are the final fallback when neither managed configuration nor
@@ -11,6 +12,7 @@ const DEFAULT_CONFIGURATION = {
     modalAfter: 60,
     popupLife: 30,
     redirectUrl: DEFAULT_REDIRECT_URL,
+    sessionEndAction: DEFAULT_SESSION_END_ACTION,
     titleFR: "Inactivité détectée",
     txtFR: "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
     btnContinueFR: "Oui, continuer ma session",
@@ -25,9 +27,7 @@ const DEFAULT_CONFIGURATION = {
     btnQuitEN: "No, exit",
     kioskRestrictionsEnabled: true,
     csamLanguageSyncEnabled: false,
-    kioskRestrictions: InactivityKioskRestrictionsCore.DEFAULT_KIOSK_RESTRICTIONS,
-    hostname: "",
-    ip: ""
+    kioskRestrictions: InactivityKioskRestrictionsCore.DEFAULT_KIOSK_RESTRICTIONS
 };
 
 const CONFIG_TEXT_LIMITS = {
@@ -42,9 +42,7 @@ const CONFIG_TEXT_LIMITS = {
     titleEN: 500,
     txtEN: 2000,
     btnContinueEN: 200,
-    btnQuitEN: 200,
-    hostname: 255,
-    ip: 255
+    btnQuitEN: 200
 };
 
 const EDITABLE_CONFIG_KEYS = [
@@ -66,7 +64,7 @@ const EDITABLE_CONFIG_KEYS = [
     "kioskRestrictionsEnabled"
 ];
 
-const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "kioskRestrictions", "hostname", "ip", "csamLanguageSyncEnabled"];
+const CONFIG_KEYS = [...EDITABLE_CONFIG_KEYS, "kioskRestrictions", "csamLanguageSyncEnabled", "sessionEndAction"];
 
 const WEB_DATA_TO_REMOVE = {
     cache: true,
@@ -233,14 +231,13 @@ async function clearLocalOverrides() {
 function validateCompleteConfiguration(source) {
     const config = {
         ...validateEditableConfiguration(source),
+        sessionEndAction: requireSessionEndAction(source.sessionEndAction),
         csamLanguageSyncEnabled: source.csamLanguageSyncEnabled === undefined
             ? false : requireBoolean(source.csamLanguageSyncEnabled, "csamLanguageSyncEnabled"),
         kioskRestrictions: InactivityKioskRestrictionsCore.validateKioskRestrictions(
             source.kioskRestrictions,
             (selector) => document.querySelector(selector)
-        ),
-        hostname: requireString(source.hostname, "hostname", CONFIG_TEXT_LIMITS.hostname),
-        ip: requireString(source.ip, "ip", CONFIG_TEXT_LIMITS.ip)
+        )
     };
 
     return config;
@@ -262,9 +259,6 @@ function validateEditableConfiguration(source) {
     };
 
     for (const [key, maxLength] of Object.entries(CONFIG_TEXT_LIMITS)) {
-        if (key === "hostname" || key === "ip") {
-            continue;
-        }
         config[key] = requireString(source[key], key, maxLength);
     }
 
@@ -321,6 +315,13 @@ function requireBoolean(value, key) {
     return value;
 }
 
+function requireSessionEndAction(value = DEFAULT_SESSION_END_ACTION) {
+    if (value !== "deconnexion" && value !== "close firefox") {
+        throw new Error('Configuration key "sessionEndAction" must be "deconnexion" or "close firefox".');
+    }
+    return value;
+}
+
 function requireRedirectUrl(value) {
     const normalized = normalizeRedirectUrl(value);
     if (normalized === DEFAULT_REDIRECT_URL && String(value ?? "").trim() !== DEFAULT_REDIRECT_URL) {
@@ -348,8 +349,15 @@ async function resetSession(tabId, requestedLogoutUrl, sourceUrl) {
     resetsInProgress.add(tabId);
 
     try {
-        const { redirectUrl } = await browser.storage.local.get("redirectUrl");
-        const targetUrl = normalizeRedirectUrl(redirectUrl);
+        // Resolve managed settings even for FAS refusal, which can request an
+        // end of session before a content script has loaded its configuration.
+        const { config } = await getEffectiveConfiguration();
+        if (config.sessionEndAction === "close firefox") {
+            // The content script must close its own top-level page context.
+            return { ok: true, action: "close firefox" };
+        }
+
+        const targetUrl = normalizeRedirectUrl(config.redirectUrl);
         const logoutUrl = normalizeLogoutUrl(requestedLogoutUrl, sourceUrl);
 
         if (logoutUrl) {

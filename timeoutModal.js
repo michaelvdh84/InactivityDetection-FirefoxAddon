@@ -131,13 +131,7 @@ else if ((currentUrl == "https://idp.iamfas.int.belgium.be/fasui/itsme/refused")
     requestSessionReset();
 }
 else {
-    loadEffectiveConfiguration().then((config) => {
-        if (isConfiguredStartPage(currentUrl, config.redirectUrl)) {
-            console.log("Start page detected, inactivity timer disabled.");
-        } else {
-            enableActivityDetection();
-        }
-    }, (error) => {
+    loadEffectiveConfiguration().then(enableActivityDetection, (error) => {
         onError(error);
     });
 }
@@ -231,42 +225,7 @@ function onError(error) {
     console.log(error);
 }
 
-function isConfiguredStartPage(pageUrl, redirectUrl) {
-    if (!redirectUrl || redirectUrl === "about:blank") {
-        return false;
-    }
-
-    try {
-        const page = new URL(pageUrl);
-        const startPage = new URL(redirectUrl);
-
-        if (
-            !["http:", "https:"].includes(page.protocol) ||
-            !["http:", "https:"].includes(startPage.protocol)
-        ) {
-            return false;
-        }
-
-        return (
-            page.origin === startPage.origin &&
-            normalizePathname(page.pathname) ===
-                normalizePathname(startPage.pathname)
-        );
-    } catch (error) {
-        onError(error);
-        return false;
-    }
-}
-
-function normalizePathname(pathname) {
-    if (pathname.length <= 1) {
-        return pathname;
-    }
-
-    return pathname.replace(/\/+$/, "");
-}
-
-function requestSessionReset() {
+async function requestSessionReset() {
     if (sessionResetRequested) {
         return;
     }
@@ -274,18 +233,21 @@ function requestSessionReset() {
     sessionResetRequested = true;
     clearInterval(timer);
 
-    browser.runtime.sendMessage({
-        type: "reset-session",
-        logoutUrl: getPortalLogoutUrl()
-    }).then((response) => {
+    try {
+        const response = await browser.runtime.sendMessage({
+            type: "reset-session",
+            logoutUrl: getPortalLogoutUrl()
+        });
         if (!response?.ok) {
-            sessionResetRequested = false;
-            onError(response?.error ?? "Session reset failed.");
+            throw new Error(response?.error ?? "Session reset failed.");
         }
-    }, (error) => {
+        if (response.action === "close firefox") {
+            window.top.close();
+        }
+    } catch (error) {
         sessionResetRequested = false;
         onError(error);
-    });
+    }
 }
 
 function getPortalLogoutUrl() {

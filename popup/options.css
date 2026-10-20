@@ -57,19 +57,8 @@
     margin: 3px 0;
 }
 
-.options-machine label {
-    display: inline-block;
-    width: 25%;
-}
-
-.options-machine input {
-    box-sizing: border-box;
-    width: 70%;
-}
-
 .options-form input:disabled,
-.options-form textarea:disabled,
-.options-machine input[readonly] {
+.options-form textarea:disabled {
     background: #f2f2f2;
     color: #666;
 }

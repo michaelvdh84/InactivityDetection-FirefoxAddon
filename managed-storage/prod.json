@@ -5,6 +5,7 @@
   "data": {
     "modalAfter": 40,
     "popupLife": 30,
+    "sessionEndAction": "close firefox",
     "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/?is_self_service_kiosk=true&self_service_kiosk_id=%COMPUTERNAME%",
     "titleFR": "Inactivité détectée",
     "txtFR": "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
@@ -18,8 +19,6 @@
     "txtEN": "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
     "btnContinueEN": "Yes, continue my session",
     "btnQuitEN": "No, exit",
-    "hostname": "BORNE-TEST",
-    "ip": "192.0.2.10",
     "allowLocalOverrides": true,
     "csamLanguageSyncEnabled": true,
     "kioskRestrictionsEnabled": true,

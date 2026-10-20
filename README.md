@@ -2,12 +2,12 @@
 
 Firefox Manifest V3 extension for public self-service kiosks. It monitors user
 activity, displays a multilingual confirmation dialog after an idle period,
-then signs out, clears browser data, and redirects the tab when the session is
-abandoned.
+then closes Firefox by default when the session is abandoned. A managed option
+can instead sign out, clear browser data, and redirect the tab.
 
 The extension is intended for dedicated Firefox profiles. Session cleanup is
-profile-wide for normal website data and may affect every site open in the same
-profile.
+profile-wide for normal website data. The close action runs from the current
+page in the kiosk window.
 
 ## Features
 
@@ -15,12 +15,13 @@ profile.
 - responsive I-City inactivity dialog with configurable titles, messages, and
   buttons in French, Belgian Dutch, and English;
 - language selection from `fr-BE`, `nl-BE`, or `en-US` in the current URL;
-- configurable redirect after each session reset;
+- managed choice between closing Firefox (default) and session reset;
+- configurable redirect after each session reset in `deconnexion` mode;
 - Firefox Home button navigation to the current effective `redirectUrl`;
 - Dynamics Power Pages logout before local data cleanup;
 - removal of cookies, cache, site storage, history, form data, and download
   history without closing Firefox;
-- automatic disabling of inactivity detection on the configured start page;
+- inactivity detection on the configured start page as well as ordinary pages;
 - centralized kiosk configuration through Firefox Managed Storage;
 - optional local overrides through the extension options panel;
 - existing itsme and FAS navigation exceptions;
@@ -35,13 +36,12 @@ dialog:
 
 - **Continue** closes the dialog, cancels the grace-period timeout, and starts
   a new idle period;
-- **Quit**, or expiry of `popupLife`, starts the session-reset workflow.
+- **Quit**, or expiry of `popupLife`, runs the configured session-end action.
 
-No activity listeners or timer are registered when the current document is the
-configured `redirectUrl`. Start-page matching compares only the HTTP(S) origin
-and normalized pathname. Query parameters, fragments, and trailing-slash
-differences are ignored. Detection begins normally after navigation to another
-page.
+The configured `redirectUrl` has the same activity listeners, inactivity timer,
+and dialog as any ordinary page, including after a reset redirects there. The
+itsme and FAS authentication exceptions below still apply. Firefox internal
+pages such as `about:blank` cannot run the content script.
 
 ## Language selection
 
@@ -78,7 +78,8 @@ configuration change does not require a new extension package.
 | Key | Type | Default or purpose |
 | --- | --- | --- |
 | `modalAfter` | positive number | `60`; seconds before displaying the dialog |
-| `popupLife` | positive number | `30`; seconds before automatic reset |
+| `popupLife` | positive number | `30`; seconds before the session-end action |
+| `sessionEndAction` | string | Managed Storage-only; `"close firefox"` (default) or `"deconnexion"` |
 | `redirectUrl` | string | `about:blank`; accepts `about:blank` or an absolute HTTP(S) URL |
 | `titleFR` | string | `Inactivité détectée` |
 | `txtFR` | string | French inactivity message |
@@ -88,8 +89,6 @@ configuration change does not require a new extension package.
 | `btnContinueNL`, `btnQuitNL` | strings | Belgian Dutch button labels |
 | `titleEN`, `txtEN` | strings | English title and message |
 | `btnContinueEN`, `btnQuitEN` | strings | English button labels |
-| `hostname` | string | machine metadata supplied by Managed Storage; read-only in options |
-| `ip` | string | machine metadata supplied by Managed Storage; read-only in options |
 | `allowLocalOverrides` | boolean | managed-only flag; defaults to `true` |
 | `kioskRestrictionsEnabled` | boolean | global Managed Storage switch; defaults to `true` |
 | `kioskRestrictions` | array of rule objects | Managed Storage-only site UI rules; see [Managed Storage setup](managedStorage.md#règles-de-restriction-dinterface-kiosque) |
@@ -97,6 +96,11 @@ configuration change does not require a new extension package.
 Managed configuration is applied atomically: every required value must be
 present and valid. Unknown keys are ignored. An absent or invalid managed
 manifest preserves the last valid local configuration.
+
+`sessionEndAction` is optional in existing managed files: omitting it selects
+`"close firefox"`. Local overrides and options saves cannot change this setting.
+An unsupported value rejects the managed file atomically, preserving the last
+valid local configuration.
 
 ### Options panel
 
@@ -122,8 +126,8 @@ For registry paths, JSON deployment, validation, and troubleshooting, see
 ### Set the PC hostname during deployment
 
 Run [`deploy/Set-KioskHostname.ps1`](deploy/Set-KioskHostname.ps1) on each
-Windows kiosk before starting Firefox. It sets `data.hostname` to the PC's
-`COMPUTERNAME` environment variable. Edit `$ConfigPath` at the top of the script
+Windows kiosk before starting Firefox. It substitutes the PC's `COMPUTERNAME`
+environment variable in `data.redirectUrl`. Edit `$ConfigPath` at the top of the script
 to point to the deployed Managed Storage JSON, or pass the path when running it:
 
 ```powershell
@@ -144,14 +148,15 @@ of `data.redirectUrl` in your configuration template:
 For a PC named `BORNE-001`, the script writes:
 
 ```json
-"redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/?kioksID=BORNE-001",
-"hostname": "BORNE-001"
+"redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/?kioksID=BORNE-001"
 ```
 
 Use the query parameter name expected by your portal (`kioksID` in this example).
 The script URL-encodes the computer name and replaces only the literal
 `%COMPUTERNAME%` marker. Firefox and the extension do not expand environment
-variables or substitute the `hostname` field themselves.
+variables themselves. The former `hostname` and `ip` configuration fields have
+been removed; existing JSON files containing them remain accepted and the fields
+are ignored.
 
 The script updates the JSON in place and preserves the other configuration
 values. Once replaced, the marker is gone: deploy a fresh template before running
@@ -160,10 +165,41 @@ the update and restart it afterward. If a local override contains a different
 `redirectUrl`, select **Use managed values** in the popup, or deploy
 `allowLocalOverrides: false` to enforce the managed configuration.
 
-## Session reset and Dynamics logout
+## Session end: close Firefox or disconnect
 
-A reset can be triggered by the **Quit** button, grace-period expiry, or the
-existing exact FAS `itsme/refused` exception.
+Add one of these values in `data` of the complete Managed Storage JSON:
+
+```json
+"sessionEndAction": "close firefox"
+```
+
+```json
+"sessionEndAction": "deconnexion"
+```
+
+**Quit**, grace-period expiry, and the exact FAS `itsme/refused` exception all
+use this choice. Close Firefox completely and relaunch it after deploying the
+managed file.
+
+In the default `close firefox` mode, the background confirms the configured
+action and the content script calls `window.top.close()` on **Quit** or
+grace-period expiry. For the dedicated kiosk profile, set
+`dom.allow_scripts_to_close_windows` to `true` in Firefox's `about:config` to
+allow page scripts to close a page they did not open. The kiosk launcher manages
+relaunching Firefox. Test with the kiosk's single-tab window configuration.
+See [Mozilla's page-closing documentation](https://developer.mozilla.org/en-US/docs/Web/API/Window/close).
+
+Closing Firefox does not request Dynamics logout, run `browsingData.remove()`,
+or redirect. Persistent cookies and restored sessions may survive reopening;
+configure the dedicated profile's cleanup-on-exit and session-restore settings
+to meet the kiosk's requirements. Closing alone does not guarantee server-side
+or external identity-provider logout.
+
+In `deconnexion` mode, Firefox remains open and the existing reset workflow below
+applies. The timer also runs on the redirect page, so a page left idle can start
+another session-end cycle.
+
+### Dynamics logout in deconnexion mode
 
 On a Dynamics Power Pages document containing
 `#header-sign-out[data-logout-url]`, the extension resolves that logout path
@@ -207,7 +243,7 @@ The extension preserves the portal's authentication-flow exceptions:
 - on `itsme.be`, inactivity detection starts only when `#phoneForm` exists;
 - FAS OAuth authorization redirects do not start an inactivity timer;
 - the exact production and integration FAS `itsme/refused` pages immediately
-  request a session reset;
+  request the configured session-end action;
 - the default managed `fas-login` rule hides selected navigation, footer, video,
   and help elements only on the two exact FAS hosts below `/fas/XUI/`;
 - the default managed `ibz-pin-puk` rule hides selected page chrome only on the
@@ -288,7 +324,7 @@ There is no build step or external test dependency. Run the Node behavior test,
 syntax checks, and JSON checks from PowerShell:
 
 ```powershell
-node --test tests/kioskRestrictionsCore.test.js
+node --test
 node --check kioskRestrictionsCore.js
 node --check kioskUiRestrictions.js
 node --check timeoutModal.js
@@ -301,17 +337,20 @@ git diff --check
 
 For a manual test, use short timeout values and verify:
 
-1. the configured start page remains idle even after mouse, touch, click, and
-   keyboard interaction;
-2. navigating away from the start page enables normal detection;
+1. the configured start page shows the dialog after inactivity, including after
+   a completed reset redirect; mouse, touch, click, and keyboard activity postpone it;
+2. navigating away from the start page retains normal detection;
 3. inactivity shows exactly one dialog;
 4. `fr-BE`, `nl-BE`, and `en-US` select the expected title, message, and button
    labels;
 5. **Continue** starts a fresh idle period;
-6. **Quit** and grace-period expiry request Dynamics logout before cleanup and
-   redirection;
-7. website cookies and storage are absent after reset while extension settings
-   remain available;
+6. with `sessionEndAction: "close firefox"` (or the key omitted), **Quit** and
+   grace-period expiry call `window.top.close()` with
+   `dom.allow_scripts_to_close_windows: true`; the kiosk window closes, the
+   launcher can reopen Firefox, and profile cleanup/restore settings behave as intended;
+7. with `sessionEndAction: "deconnexion"`, **Quit** and grace-period expiry
+   request Dynamics logout before cleanup and redirection; website cookies and
+   storage are absent afterward while extension settings remain available;
 8. Managed Storage, local override, and **Use managed values** precedence works
    as documented;
 9. the Firefox Home button opens the current effective `redirectUrl` after a

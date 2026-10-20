@@ -42,6 +42,7 @@ Gecko déclaré dans `manifest.json` :
   "data": {
     "modalAfter": 60,
     "popupLife": 30,
+    "sessionEndAction": "close firefox",
     "redirectUrl": "https://www.mybxl.be/en-US/self-service-kiosk/language-selection/",
     "titleFR": "Inactivité détectée",
     "txtFR": "Vous n'avez plus interagi avec la borne depuis un certain temps.\nSouhaitez-vous continuer à l'utiliser ?",
@@ -55,8 +56,6 @@ Gecko déclaré dans `manifest.json` :
     "txtEN": "You have not interacted with the kiosk for some time.\nWould you like to continue using it?",
     "btnContinueEN": "Yes, continue my session",
     "btnQuitEN": "No, exit",
-    "hostname": "BORNE-001",
-    "ip": "10.20.30.101",
     "allowLocalOverrides": true,
     "kioskRestrictionsEnabled": true,
     "kioskRestrictions": [
@@ -73,20 +72,56 @@ Gecko déclaré dans `manifest.json` :
 ```
 
 Toutes les propriétés présentées dans `data` sont obligatoires, sauf
-`allowLocalOverrides`, qui vaut `true` par défaut, et
-`csamLanguageSyncEnabled`, qui vaut `false` par défaut :
+`allowLocalOverrides`, qui vaut `true` par défaut,
+`csamLanguageSyncEnabled`, qui vaut `false` par défaut, et
+`sessionEndAction`, qui vaut `"close firefox"` par défaut :
 
 - `modalAfter` et `popupLife` sont des nombres strictement positifs exprimés en
   secondes ;
 - `redirectUrl` vaut `about:blank` ou une URL HTTP(S) absolue ;
-- les titres, textes, libellés de boutons, `hostname` et `ip` sont des chaînes ;
+- les titres, textes et libellés de boutons sont des chaînes ;
 - chaque `title*` accepte au plus 500 caractères, chaque `txt*` 2 000, chaque
-  `btnContinue*` ou `btnQuit*` 200, et `hostname` ou `ip` 255 ; une chaîne vide
-  est admise pour les métadonnées ou le texte ;
+  `btnContinue*` ou `btnQuit*` 200 ; une chaîne vide est admise pour le texte ;
 - chaque langue utilise quatre clés avec le suffixe `FR`, `NL` ou `EN` :
   `title`, `txt`, `btnContinue` et `btnQuit` ;
 - `allowLocalOverrides: true` autorise **Validate** dans le panneau ;
 - `allowLocalOverrides: false` impose le JSON et désactive les champs éditables.
+
+Les anciens champs `hostname` et `ip` ont été retirés. Ils n'avaient aucun effet
+sur le fonctionnement de l'extension. Un ancien fichier qui les contient reste
+accepté : ces clés sont ignorées. Le script `deploy/Set-KioskHostname.ps1`
+continue de remplacer `%COMPUTERNAME%` dans `redirectUrl` sans utiliser ces champs.
+
+### Action de fin de session
+
+La clé facultative `sessionEndAction` accepte exactement deux chaînes :
+
+- `"close firefox"` : valeur par défaut, y compris dans les anciens fichiers
+  sans cette clé. Le content script appelle `window.top.close()`, sans logout
+  Dynamics, nettoyage des données ni redirection. Dans le profil Firefox de la
+  borne, ouvrir `about:config` et définir `dom.allow_scripts_to_close_windows`
+  à `true`. Vérifier la fermeture avec la configuration de la borne à un seul
+  onglet. Le lanceur existant gère la relance de Firefox.
+- `"deconnexion"` : conserve Firefox ouvert, demande le logout Dynamics quand
+  il existe, charge `reset.html`, nettoie les données web puis ouvre `redirectUrl`.
+
+Cette action s'applique au bouton **Quitter**, à l'expiration du délai de grâce
+et aux URL FAS exactes `itsme/refused`. Elle est exclusivement administrée :
+`allowLocalOverrides` et les enregistrements du panneau ne peuvent pas la modifier.
+Une autre valeur rejette le manifeste entier ; la dernière configuration locale
+valide reste utilisée. Fermer complètement Firefox puis le relancer après
+modification du JSON.
+
+La fermeture n'efface pas à elle seule les cookies persistants et ne garantit pas
+la déconnexion du portail ou du fournisseur d'identité. Vérifier les paramètres
+de nettoyage à la fermeture et de restauration de session du profil Firefox.
+Le mode `deconnexion` conserve le nettoyage existant ; la déconnexion du
+fournisseur d'identité dépend toujours de l'option External logout du portail.
+
+Le timer fonctionne également sur la page `redirectUrl`, après activité ou après
+un retour par reset, avec les mêmes délais et la même fenêtre de confirmation.
+Les exceptions itsme/FAS restent inchangées ; les pages internes Firefox comme
+`about:blank` ne peuvent pas exécuter le content script.
 
 ### Synchronisation de la langue CSAM
 
@@ -195,7 +230,8 @@ Get-Content -Raw -LiteralPath $managedManifest | ConvertFrom-Json | Out-Null
 
 Conserver le modèle maître sur un partage ou dans l’outil de gestion du parc,
 mais copier une version locale sur chaque borne avant de démarrer Firefox. La
-génération peut renseigner `hostname`, `ip` et l’environnement de la borne.
+génération peut personnaliser `redirectUrl` selon l'environnement de la borne,
+notamment en remplaçant `%COMPUTERNAME%` avec `deploy/Set-KioskHostname.ps1`.
 
 Écrire d’abord un fichier temporaire, valider son JSON, puis le déplacer vers le
 chemin final. Ce remplacement atomique empêche Firefox de lire un fichier

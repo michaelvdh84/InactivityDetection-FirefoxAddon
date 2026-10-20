@@ -17,8 +17,7 @@ const completeEditableConfig = {
 
 const completeConfig = {
     ...completeEditableConfig,
-    kioskRestrictionsEnabled: true,
-    hostname: "", ip: ""
+    kioskRestrictionsEnabled: true
 };
 
 const managedRules = [{
@@ -74,6 +73,32 @@ function createFixture({ managed = {}, local = {} } = {}) {
     vm.runInContext(backgroundSource, context, { filename: "background.js" });
     return { saved, sendMessage: (message) => messageListener(message, {}) };
 }
+
+test("deployable JSON files resolve without machine metadata", async () => {
+    for (const file of ["prod.json", "michael.vanderhoudelinghen@i-city.brucity.be.json"]) {
+        const managed = JSON.parse(fs.readFileSync(path.join(root, "managed-storage", file), "utf8")).data;
+        assert.equal(Object.hasOwn(managed, "hostname"), false);
+        assert.equal(Object.hasOwn(managed, "ip"), false);
+        const result = await createFixture({ managed }).sendMessage({ type: "get-effective-config" });
+        assert.equal(result.managedAvailable, true);
+        assert.equal(result.config.redirectUrl, managed.redirectUrl);
+        assert.equal(Object.hasOwn(result.config, "hostname"), false);
+        assert.equal(Object.hasOwn(result.config, "ip"), false);
+    }
+});
+
+test("legacy machine metadata is ignored in managed values, local fallback and overrides", async () => {
+    const legacy = { ...completeConfig, kioskRestrictions: managedRules, hostname: { unused: true }, ip: 123 };
+    for (const managed of [legacy, {}]) {
+        const result = await createFixture({
+            managed, local: { ...legacy, localOverrides: { ...legacy, modalAfter: 42 } }
+        }).sendMessage({ type: "get-effective-config" });
+        assert.equal(result.managedAvailable, managed === legacy);
+        assert.equal(result.config.modalAfter, 42);
+        assert.equal(Object.hasOwn(result.config, "hostname"), false);
+        assert.equal(Object.hasOwn(result.config, "ip"), false);
+    }
+});
 
 test("managed rules override defaults and the local switch overrides only the global flag", async () => {
     const { sendMessage } = createFixture({
@@ -156,3 +181,43 @@ test("invalid CSAM policy rejects managed values atomically and preserves the la
     assert.equal(result.config.csamLanguageSyncEnabled, true);
     assert.match(result.managedError, /csamLanguageSyncEnabled/);
 });
+
+test("session end defaults to closing Firefox for new installs and existing managed files", async () => {
+    for (const managed of [{}, { ...completeConfig, kioskRestrictions: managedRules }]) {
+        const { saved, sendMessage } = createFixture({ managed });
+        const result = await sendMessage({ type: "get-effective-config" });
+        assert.equal(result.config.sessionEndAction, "close firefox");
+        assert.equal(saved.sessionEndAction, "close firefox");
+    }
+});
+
+for (const sessionEndAction of ["deconnexion", "close firefox"]) {
+    test(`session end action ${sessionEndAction} is managed-only and survives options saves`, async () => {
+        const fixture = createFixture({ managed: {
+            ...completeConfig, kioskRestrictions: managedRules, sessionEndAction
+        } });
+        const result = await fixture.sendMessage({ type: "save-local-overrides", config: {
+            ...completeConfig, sessionEndAction: sessionEndAction === "deconnexion" ? "close firefox" : "deconnexion"
+        } });
+        assert.equal(result.config.sessionEndAction, sessionEndAction);
+        assert.equal(fixture.saved.localOverrides.sessionEndAction, undefined);
+        // If Managed Storage later becomes unavailable, retain the last resolved choice.
+        const fallback = await createFixture({ local: fixture.saved })
+            .sendMessage({ type: "get-effective-config" });
+        assert.equal(fallback.config.sessionEndAction, sessionEndAction);
+    });
+}
+
+for (const sessionEndAction of [null, false, "quit", "déconnexion", ""]) {
+    test(`invalid session end action ${JSON.stringify(sessionEndAction)} rejects managed configuration atomically`, async () => {
+        const fixture = createFixture({
+            managed: { ...completeConfig, kioskRestrictions: managedRules, modalAfter: 999, sessionEndAction },
+            local: { ...completeConfig, kioskRestrictions: storedFallbackRules, modalAfter: 42, sessionEndAction: "deconnexion" }
+        });
+        const result = await fixture.sendMessage({ type: "get-effective-config" });
+        assert.equal(result.managedAvailable, false);
+        assert.match(result.managedError, /sessionEndAction/);
+        assert.equal(result.config.modalAfter, 42);
+        assert.equal(result.config.sessionEndAction, "deconnexion");
+    });
+}

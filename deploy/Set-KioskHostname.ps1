@@ -12,12 +12,10 @@ if ([string]::IsNullOrWhiteSpace($computerName)) {
 
 $config = Get-Content -Raw -Encoding UTF8 -LiteralPath $ConfigPath | ConvertFrom-Json
 if ($null -eq $config.data -or
-    $config.data.hostname -isnot [string] -or
     $config.data.redirectUrl -isnot [string]) {
-    throw 'The configuration must contain data.hostname and data.redirectUrl strings.'
+    throw 'The configuration must contain a data.redirectUrl string.'
 }
 
-$config.data.hostname = $computerName
 $config.data.redirectUrl = $config.data.redirectUrl.Replace(
     '%COMPUTERNAME%', [Uri]::EscapeDataString($computerName)
 )
@@ -34,4 +32,4 @@ try {
     }
 }
 
-Write-Host "Updated hostname in $ConfigPath. Restart Firefox to load the configuration."
+Write-Host "Updated redirect URL in $ConfigPath. Restart Firefox to load the configuration."

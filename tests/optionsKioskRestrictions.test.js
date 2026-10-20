@@ -10,7 +10,7 @@ const fieldIds = [
     "modalAfter", "popupLife", "redirectUrl", "titleFR", "txtFR",
     "btnContinueFR", "btnQuitFR", "titleNL", "txtNL", "btnContinueNL",
     "btnQuitNL", "titleEN", "txtEN", "btnContinueEN", "btnQuitEN",
-    "hostname", "ip", "kioskRestrictionsEnabled", "kioskRestrictionsSummary",
+    "kioskRestrictionsEnabled", "kioskRestrictionsSummary",
     "extTimeoutOptionbtn", "unlockConfigBtn", "useManagedValuesBtn",
     "managedConfigStatus"
 ];
@@ -51,7 +51,7 @@ function createFixture({ allowLocalOverrides = true } = {}) {
         titleFR: "FR", txtFR: "FR", btnContinueFR: "Continue", btnQuitFR: "Quit",
         titleNL: "NL", txtNL: "NL", btnContinueNL: "Continue", btnQuitNL: "Quit",
         titleEN: "EN", txtEN: "EN", btnContinueEN: "Continue", btnQuitEN: "Quit",
-        hostname: "", ip: "", kioskRestrictionsEnabled: true,
+        kioskRestrictionsEnabled: true,
         kioskRestrictions: managedRules
     };
     let effectiveConfig = { ...managedConfig };
