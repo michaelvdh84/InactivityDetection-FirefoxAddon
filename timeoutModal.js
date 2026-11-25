@@ -1,24 +1,22 @@
 let timer, currSeconds = 0;
-let url, timeout;
+let sessionResetRequested = false;
+let activityDetectionEnabled = false;
+let effectiveConfiguration = null;
+
+const activityEvents = [
+    "mousemove",
+    "mousedown",
+    "touchstart",
+    "click",
+    "keydown",
+    "input",
+    "compositionstart",
+    "compositionupdate",
+    "compositionend"
+];
 
 //This is the GET value passed by the EPNLauncher to define the language
-let epnAutoParamLang = "iclangplug";
-
-//Inject Custom CSS file
-function loadCSS() {
-    var cssId = 'InactivityExtCSS';  
-    if (!document.getElementById(cssId))
-    {
-        var head  = document.getElementsByTagName('head')[0];
-        var link  = document.createElement('link');
-        link.id   = cssId;
-        link.rel  = 'stylesheet';
-        link.type = 'text/css';
-        link.href = 'style.css';
-        link.media = 'all';
-        head.appendChild(link);
-    }
-}
+const epnAutoParamLang = "iclangplug";
 
 //This function resets the timer if an activity is detected
 function resetTimer() {
@@ -27,35 +25,40 @@ function resetTimer() {
     clearInterval(timer);
 
     currSeconds = 0;
-    modalTime = browser.storage.local.get("modalAfter")
-    //console.log("Show Modal Popup After :" + modalTime)
     /* Set a new interval */
-    timer = 
-        setInterval(function () {
-        browser.storage.local.get("modalAfter").then(showModal, onError);
+    timer = setInterval(function () {
+        showModal(effectiveConfiguration);
     }, 1000);
 }
 
-// function resetTimer() {
-//     console.log("Reset Counter !");
-//     clearInterval(timer);
+function handleActivity(event) {
+    // Ignore les événements artificiellement générés par le JavaScript du site.
+    if (event && event.isTrusted === false) {
+        return;
+    }
 
-//     currSeconds = 0;
+    resetTimer();
+}
 
-//     // Resolve the Promise to get the value of "modalAfter"
-//     browser.storage.local.get("modalAfter").then((result) => {
-//         // Assign a default value of 10 seconds if modalAfter is undefined
-//         const modalTime = result.modalAfter ?? 60; // Default to 10 seconds
-//         console.log("Show Modal Popup After :" + modalTime);
 
-//         /* Set a new interval */
-//         timer = setInterval(function () {
-//             browser.storage.local.get("modalAfter").then(showModal, onError);
-//         }, 1000);
-//     }).catch(onError);
-// }
+function enableActivityDetection() {
+    if (activityDetectionEnabled) {
+        return;
+    }
 
-// WARNING : Promise = cascade function processing  
+    activityDetectionEnabled = true;
+
+    for (const eventName of activityEvents) {
+        window.addEventListener(eventName, handleActivity, {
+            capture: true,
+            passive: true
+        });
+    }
+
+    resetTimer();
+}
+
+// WARNING : Promise = cascade function processing
 // The popup will be displayed by calling "popupLife" function
 function startIdleTimer(allowedIdleTime) {
               
@@ -65,7 +68,7 @@ function startIdleTimer(allowedIdleTime) {
     if (currSeconds == allowedIdleTime ) {      
         console.log("Idle Time need to show modal");
         // SHOW MODAL WINDOW
-        browser.storage.local.get("popupLife").then(popupLife, onError);
+        popupLife(effectiveConfiguration);
     }
 }
 
@@ -97,7 +100,6 @@ if (curl.searchParams.has(epnAutoParamLang)) {
     epnLang["epnLang"] = launcherLang;
     // Store the EPNLauncher value
     browser.storage.local.set(epnLang);
-    console.log("EPN Launcher Language: " + launcherLang);
 }
 
 var urlContains = "itsme.be"
@@ -111,14 +113,9 @@ if (currentUrl.includes(urlContains)) {
     console.log("It's Me Site !");
     var phoneForm = document.getElementById('phoneForm');
     if (phoneForm != null) {
-        resetTimer();
-        loadCSS();
-        window.onload = resetTimer;
-        window.onmousemove = resetTimer;
-        window.onmousedown = resetTimer;
-        window.ontouchstart = resetTimer;
-        window.onclick = resetTimer;
-        window.onkeypress = resetTimer;
+        loadEffectiveConfiguration().then(enableActivityDetection, (error) => {
+            onError(error);
+        });
     }
 
 } else if ((currentUrl.includes("https://idp.iamfas.belgium.be/fas/oauth2/authorize")) || (currentUrl.includes("https://idp.iamfas.int.belgium.be/fas/oauth2/authorize"))) {
@@ -128,35 +125,93 @@ if (currentUrl.includes(urlContains)) {
 else if ((currentUrl == "https://idp.iamfas.int.belgium.be/fasui/itsme/refused") || (currentUrl == "https://idp.iamfas.belgium.be/fasui/itsme/refused")) {
     //This condition is to fix the second itsme bug
     //There is already a JS timer when you validate you phone number on itsme and it causes a conflict
-    //The bug is bypassed by waiting the end of the itsme timer and close the browser if the URL correspond to xxxxxx/fasui/itsme/refused
+    //The bug is bypassed by resetting the session if the URL corresponds to xxxxxx/fasui/itsme/refused
 
-    console.log("itsme refused, close window !");
-    window.top.close();
+    console.log("itsme refused, reset session !");
+    requestSessionReset();
 }
 else {
-    resetTimer();
-    loadCSS()
-    window.onload = resetTimer;
-    window.onmousemove = resetTimer;
-    window.onmousedown = resetTimer;
-    window.ontouchstart = resetTimer;
-    window.onclick = resetTimer;
-    window.onkeypress = resetTimer;
+    loadEffectiveConfiguration().then(enableActivityDetection, (error) => {
+        onError(error);
+    });
 }
+
+async function loadEffectiveConfiguration() {
+    try {
+        const result = await browser.runtime.sendMessage({
+            type: "get-effective-config"
+        });
+        if (!result?.ok || !isCompleteConfiguration(result.config)) {
+            throw new Error("The background returned an incomplete configuration.");
+        }
+
+        effectiveConfiguration = result.config;
+        return effectiveConfiguration;
+    } catch (error) {
+        // Keep the last resolved local values usable if the background context
+        // cannot answer during browser startup.
+        onError(error);
+        const storedConfiguration = await browser.storage.local.get(null);
+        if (!isCompleteConfiguration(storedConfiguration)) {
+            throw new Error("No complete inactivity configuration is available.");
+        }
+        effectiveConfiguration = storedConfiguration;
+        return effectiveConfiguration;
+    }
+}
+
+function isCompleteConfiguration(config) {
+    const requiredTextKeys = [
+        "redirectUrl",
+        "titleFR",
+        "txtFR",
+        "btnContinueFR",
+        "btnQuitFR",
+        "titleNL",
+        "txtNL",
+        "btnContinueNL",
+        "btnQuitNL",
+        "titleEN",
+        "txtEN",
+        "btnContinueEN",
+        "btnQuitEN"
+    ];
+
+    return Boolean(
+        config &&
+        Number.isFinite(Number(config.modalAfter)) &&
+        Number(config.modalAfter) > 0 &&
+        Number.isFinite(Number(config.popupLife)) &&
+        Number(config.popupLife) > 0 &&
+        requiredTextKeys.every((key) => typeof config[key] === "string")
+    );
+}
+
+// Options-page saves are resolved by the background into these top-level local
+// keys. Reflect them in already loaded pages without restarting their timer.
+browser.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !effectiveConfiguration) {
+        return;
+    }
+
+    for (const [key, change] of Object.entries(changes)) {
+        if (key in effectiveConfiguration && change.newValue !== undefined) {
+            effectiveConfiguration[key] = change.newValue;
+        }
+    }
+});
 
 //Promise
 function showModal(item) {
-    const modalAfter = item.modalAfter ?? 60; // Default to 60 seconds
-    const showModalAfter = modalAfter * 1000; // Convert to milliseconds
-    console.log("ShowModal After : " + showModalAfter);
+    const showModalAfter = item.modalAfter * 1000; // Convert to milliseconds
+    console.log("Show popup after : " + showModalAfter+ " ms");
     startIdleTimer(showModalAfter);
 }
 
 // //Promise
 function popupLife(item) {
-    const popupLife = item.popupLife ?? 30; // Default to 60 seconds
-    var showPopupLife = popupLife * 1000;
-    console.log("Popup Life : " + showPopupLife)
+    var showPopupLife = item.popupLife * 1000;
+    console.log("Reset after : " + showPopupLife + " ms");
      //console.log("Popup Life : " + popupLife)
      getModalParameters(showPopupLife);
 
@@ -170,85 +225,122 @@ function onError(error) {
     console.log(error);
 }
 
+async function requestSessionReset() {
+    if (sessionResetRequested) {
+        return;
+    }
+
+    sessionResetRequested = true;
+    clearInterval(timer);
+
+    try {
+        const response = await browser.runtime.sendMessage({
+            type: "reset-session",
+            logoutUrl: getPortalLogoutUrl()
+        });
+        if (!response?.ok) {
+            throw new Error(response?.error ?? "Session reset failed.");
+        }
+        if (response.action === "close firefox") {
+            window.top.close();
+        }
+    } catch (error) {
+        sessionResetRequested = false;
+        onError(error);
+    }
+}
+
+function getPortalLogoutUrl() {
+    const logoutButton = document.querySelector(
+        "#header-sign-out[data-logout-url]"
+    );
+
+    if (!logoutButton) {
+        return null;
+    }
+
+    try {
+        const logoutUrl = new URL(logoutButton.dataset.logoutUrl, window.location.href);
+
+        if (
+            (logoutUrl.protocol === "http:" || logoutUrl.protocol === "https:") &&
+            logoutUrl.origin === window.location.origin
+        ) {
+            return logoutUrl.href;
+        }
+    } catch (error) {
+        onError(error);
+    }
+
+    return null;
+}
+
 
 async function getModalParameters(timer) {
     try {
-        const { epnLang } = await browser.storage.local.get("epnLang");
-        console.log("Debug valueEpnLang:", epnLang);
-
-        let languageKey = "txtFR"; // Default language is French
-        let languageTitleKey = "titleFR"; // Default title is French
-        let language = "fr"; // Default language is French
-        //add default value if no value
-        let defaultModalTitle = "Inactivit&eacute; d&eacute;tect&eacute;e !";
-        let defaultMessage = "Voulez-vous maintenir la session ouverte ?";
-
-        if (epnLang) {
-            if (epnLang.includes("nl")) {
-                languageKey = "txtNL";
-                languageTitleKey = "titleNL";
-                language = "nl";
-                defaultMessage = "Wil je de sessie open houden ?";
-                defaultModalTitle = "Inactiviteit gedetecteerd !";
-            } else if (epnLang.includes("en")) {
-                languageKey = "txtEN";
-                languageTitleKey = "titleEN";
-                language = "en";
-                defaultMessage = "Do you want to keep the session open?";
-                defaultModalTitle = "Inactivity detected !";
-            } else if (epnLang.includes("fr")) {
-                languageKey = "txtFR";
-                languageTitleKey = "titleFR";
-                language = "fr";
-                defaultModalTitle = "Inactivit&eacute; d&eacute;tect&eacute;e !";
-                defaultMessage = "Voulez-vous maintenir la session ouverte ?";
-            }
-        }
-        const textData = await browser.storage.local.get(languageKey);
-        const titleData = await browser.storage.local.get(languageTitleKey);
-        const modalText = textData[languageKey] ?? defaultMessage;
-        const modalTitle = titleData[languageTitleKey] ?? defaultModalTitle;
+        const language = getPageLanguage(currentUrl);
+        const suffix = language.toUpperCase();
+        const languageKey = `txt${suffix}`;
+        const languageTitleKey = `title${suffix}`;
+        const continueButtonKey = `btnContinue${suffix}`;
+        const quitButtonKey = `btnQuit${suffix}`;
+        // Read the texts from the same resolved object as the timers. This
+        // prevents a managed delay from being mixed with stale local labels.
+        const modalText = effectiveConfiguration[languageKey];
+        const modalTitle = effectiveConfiguration[languageTitleKey];
+        const continueButtonText = effectiveConfiguration[continueButtonKey];
+        const quitButtonText = effectiveConfiguration[quitButtonKey];
         console.log(`Show modal in ${languageKey}:`, modalText);
 
         // Call the appropriate function to display the modal
-        htmlModal(modalText, modalTitle, language, timer);
+        htmlModal(
+            modalText,
+            modalTitle,
+            continueButtonText,
+            quitButtonText,
+            timer
+        );
     } catch (error) {
         onError(error);
     }
 }
 
-function htmlModal(txt, title, language, graceIdleTime) {
+function getPageLanguage(pageUrl) {
+    const normalizedUrl = String(pageUrl).toLowerCase();
+
+    if (normalizedUrl.includes("nl-be")) {
+        return "nl";
+    }
+    if (normalizedUrl.includes("en-us")) {
+        return "en";
+    }
+    return "fr";
+}
+
+function htmlModal(txt, title, continueText, quitText, graceIdleTime) {
     console.log("HTMLContent function:", txt);
 
     // Grace period timer
     const graceCounter = setTimeout(() => {
         console.log("Grace period expired");
-        window.top.close();
+        requestSessionReset();
     }, graceIdleTime);
-
-    if (language == "fr") {
-        var contButton = "Continuer";
-        var exitButton = "Quitter";
-    }
-
-    if (language == "nl") {
-        var contButton = "Doorgaan";
-        var exitButton = "Afsluiten";
-    }
-
-    if (language == "en") {
-        var contButton = "Continue";
-        var exitButton = "Exit";
-    }
-    // Créer les éléments DOM manuellement
-    //const lineBreak = document.createElement("br"); // Saut à la ligne
 
     const modal = document.createElement("div");
     modal.id = "modalJS";
     modal.className = "modal-timeout";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "titleInactivity");
+    modal.setAttribute("aria-describedby", "askingInactivity");
 
     const modalContent = document.createElement("div");
     modalContent.className = "modal-content-timeout";
+
+    const warningIcon = document.createElement("div");
+    warningIcon.className = "inactivity-warning-icon";
+    warningIcon.setAttribute("aria-hidden", "true");
+    warningIcon.textContent = "!";
 
     const modalTitle = document.createElement("h1");
     modalTitle.id = "titleInactivity";
@@ -259,24 +351,22 @@ function htmlModal(txt, title, language, graceIdleTime) {
     modalText.textContent = decodeHTML(txt);
 
     const buttonContainer = document.createElement("div");
-    buttonContainer.style.textAlign = "center";
-    buttonContainer.style.display = "flex"; // Utilisation de Flexbox
-    buttonContainer.style.justifyContent = "center"; // Centrer les boutons
-    buttonContainer.style.gap = "60px"; // Ajout d'un espace de 20px entre les boutons
+    buttonContainer.className = "inactivity-button-container";
     
     const continueButton = document.createElement("button");
     continueButton.id = "continuerTimeout";
-    continueButton.className = "buttonTimeOut";
-    continueButton.textContent = contButton;
+    continueButton.className = "buttonTimeOut button-timeout-continue";
+    continueButton.textContent = decodeHTML(continueText);
 
     const closeButton = document.createElement("button");
-    closeButton.className = "buttonTimeOut";
-    closeButton.textContent = exitButton;
-    closeButton.onclick = () => window.top.close();
+    closeButton.className = "buttonTimeOut button-timeout-quit";
+    closeButton.textContent = decodeHTML(quitText);
+    closeButton.onclick = requestSessionReset;
 
     // Assembler les éléments
-    buttonContainer.appendChild(continueButton);
     buttonContainer.appendChild(closeButton);
+    buttonContainer.appendChild(continueButton);
+    modalContent.appendChild(warningIcon);
     modalContent.appendChild(modalTitle);
     modalContent.appendChild(modalText);
     modalContent.appendChild(buttonContainer);

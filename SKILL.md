@@ -1,0 +1,164 @@
+---
+name: maintain-firefox-inactivity-extension
+description: Maintain and troubleshoot this repository's Firefox Manifest V3 inactivity extension, including timers, session cleanup, redirects, Firefox Managed Storage, local configuration overrides, managed kiosk UI restrictions, multilingual options, and itsme/FAS exceptions. Use for code, configuration, review, or release work in this repository; do not use for unrelated Firefox extensions.
+---
+
+# Maintain the Firefox inactivity extension
+
+Use this skill for changes to the extension in this repository. Read
+`AGENTS.md` first, then inspect the files involved in the requested behavior.
+
+## Establish the affected flow
+
+Trace changes through the smallest relevant path:
+
+- Idle detection: `manifest.json` -> `timeoutModal.js` ->
+  `inactivityplugin.css`.
+- Session reset: Dynamics `data-logout-url` detection in `timeoutModal.js` ->
+  runtime `reset-session` message -> remote logout in `background.js` ->
+  `reset.html` -> `browsingData.remove()` -> configured `redirectUrl`.
+- Settings or defaults: `popup/options.html` -> `popup/options.js` ->
+  `browser.storage.local` reads in `timeoutModal.js`.
+- Managed settings: Windows Managed Storage manifest ->
+  `browser.storage.managed` -> validation and precedence resolution in
+  `background.js` -> effective top-level `browser.storage.local` keys -> popup
+  and content-script consumers.
+- At startup, synchronize the content script's start-page decision with the
+  first managed-resolution attempt. A missing or invalid manifest falls back to
+  the last local configuration without clearing it.
+- Use one resolved configuration object in each content script for redirect
+  matching, timeout values, and modal strings. Keep it synchronized with
+  top-level local-storage changes made after an options save.
+- Language: `fr-BE`, `nl-BE`, or `en-US` in the current page URL -> matching
+  `title`/`txt`/`btnContinue`/`btnQuit` keys with `FR`, `NL`, or `EN` suffix ->
+  modal content. Use French when no supported locale is present.
+- Site exception: evaluate the ordered itsme/FAS URL branches in
+  `timeoutModal.js` before changing general timer startup.
+- Kiosk UI restrictions: `manifest.json` -> `kioskRestrictionsCore.js` ->
+  `kioskUiRestrictions.js` -> the shared hidden marker in
+  `inactivityplugin.css`. Rules arrive from Managed Storage and apply only on
+  exact HTTPS hosts and path-prefix boundaries.
+- Packaging or permissions: `manifest.json`, with corresponding user-facing
+  documentation in `README.md` when behavior changes.
+
+Do not assume a bundler or dependency manifest. Managed kiosk-rule validation
+and matching have dependency-free Node behavior tests; other flows rely on
+syntax, JSON, and manual Firefox checks. Firefox runs `background.js` as a
+non-persistent Manifest V3 background script.
+
+## Preserve the timing contract
+
+Storage and the options UI express `modalAfter` and `popupLife` in seconds.
+Timer APIs use milliseconds. Keep runtime defaults centralized in
+`background.js`; the popup may duplicate them only for degraded rendering.
+Do not add fallback timeout or modal strings to `timeoutModal.js`, where they
+would hide a failure to resolve Managed Storage.
+
+Any timer refactor must maintain these transitions:
+
+```text
+configured start page -> keep inactivity detection disabled
+navigation to another page -> start idle detection
+page activity -> reset idle period
+idle period expires -> show one confirmation modal
+Continue -> remove modal + cancel close timeout + restart idle period
+Exit or grace expiry -> request cleanup -> redirect
+```
+
+Audit interval, timeout, modal, message, and listener cleanup together. Test
+with small durations so a duplicate timer, modal, or reset is observable.
+Compare the current URL with `redirectUrl` using only the HTTP(S) origin and
+normalized pathname. Ignore all query parameters, fragments, and trailing slash
+differences. Do not register activity listeners on that page and do not persist
+a global "session started" flag: navigation away from the configured start page
+is enough for the next content script instance to start its timer normally.
+
+## Preserve the reset contract
+
+Keep the reset sequence ordered and fail closed:
+
+1. Resolve and validate `redirectUrl`, falling back to `about:blank`.
+2. If the page supplies a same-origin HTTP(S) Dynamics logout URL, navigate to
+   it and wait for its redirect chain to finish while cookies still exist.
+3. Move the requesting tab to `reset.html` and wait for the previous site to
+   unload.
+4. Clear normal web data without clearing extension storage.
+5. Navigate to the configured URL only after cleanup succeeds.
+
+Do not navigate to the portal after a cleanup error; doing so can expose the
+next kiosk user to stale authentication state. Keep cleanup deduplicated per
+tab. Treat remote logout as best-effort so an unavailable endpoint cannot skip
+local cleanup. Changes to the global cleanup scope require explicit review
+because they affect every normal website in the Firefox profile.
+
+## Preserve compatibility and page safety
+
+- Retain Firefox's promise-based `browser.storage.local` usage.
+- Keep existing storage keys compatible unless the task includes migration.
+- Accept only absolute HTTP(S) redirect URLs or `about:blank`; never permit
+  `javascript:`, `data:`, or arbitrary local-file redirects.
+- Accept a DOM-provided logout URL only when it resolves to HTTP(S) on the
+  current page's origin. Revalidate it in `background.js`; never trust a URL
+  supplied by a content script based solely on its DOM checks.
+- Insert configurable title and message values with `textContent`, never
+  `innerHTML`; legacy stored strings may contain HTML entities and can be
+  decoded before safe insertion.
+- Keep all six configurable button keys (`btnContinueFR`, `btnQuitFR`, and the
+  `NL`/`EN` equivalents) in defaults, validation, options, and the Managed
+  Storage example. Render **Quit** before **Continue** to match the kiosk design.
+- Remember that the content script matches all URLs. Avoid page-specific DOM
+  assumptions outside the explicit exceptions, and avoid disturbing host-page
+  event handlers when changing activity detection.
+- Treat the CSS entry in `manifest.json` as the only stylesheet injection path.
+- Keep injected modal IDs/classes aligned with `inactivityplugin.css`.
+- Keep privileged cleanup and tab navigation in `background.js`; content scripts
+  should only send the reset request.
+
+## Preserve the Managed Storage contract
+
+- Keep the Gecko extension ID aligned across `manifest.json`, the managed
+  manifest's `name`, its filename, and the Windows `Mozilla\ManagedStorage`
+  registry key.
+- Treat managed settings as one validated unit. Do not partially apply malformed
+  configuration or copy unknown keys into the effective configuration.
+- Resolve precedence as defaults, managed values, then `localOverrides` only
+  when `allowLocalOverrides` is true. Keep the resolved top-level local keys for
+  backward-compatible consumers.
+- Never write to `browser.storage.managed`. Save only editable form values in
+  `browser.storage.local.localOverrides`; keep `hostname` and `ip` read-only.
+- Keep `kioskRestrictions` managed-only. Local overrides may include only the
+  global `kioskRestrictionsEnabled` switch when allowed; never let the popup or
+  local storage create, modify, or override an individual rule or selector.
+- Keep the options form read-only on open. Unlock explicitly before editing,
+  save through **Validate**, and clear overrides through **Use managed values**.
+- Update `managedStorage.md` and its deployable JSON when the schema, registry,
+  precedence, or diagnostics change.
+
+## Handle site exceptions deliberately
+
+Before editing URL matching, verify all three existing behaviors:
+
+- On `itsme.be`, start detection only if `#phoneForm` is present.
+- On the production and integration FAS OAuth authorization URLs, do not start
+  detection during automatic redirection.
+- On the exact production and integration `/fasui/itsme/refused` URLs, reset the
+  session immediately.
+- Verify the managed FAS rule on production and integration `/fas/XUI/` pages
+  and the managed IBZ PIN/PUK rule on its exact path. Keep observing DOM
+  additions and restore extension-hidden elements immediately when a matching
+  rule becomes disabled, the global switch turns off, or URL matching ends.
+
+Prefer URL parsing or narrowly scoped predicates when revising these rules, and
+do not broaden a close condition without an explicit requirement.
+
+## Verify the result
+
+For managed kiosk-rule changes, run `node --test tests/kioskRestrictionsCore.test.js`.
+Always run JavaScript syntax checks, including `kioskRestrictionsCore.js`,
+`kioskUiRestrictions.js`, and `background.js`, and parse `manifest.json` plus
+the Managed Storage example. Use `web-ext lint` when it is already available.
+For logic changes, perform or clearly request the manual Firefox scenarios
+listed in `AGENTS.md`; report any scenario not run.
+
+Keep the patch focused. Update `README.md` for user-visible behavior or defaults,
+and change the manifest version only as part of an explicit release task.
